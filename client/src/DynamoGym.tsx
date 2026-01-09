@@ -1186,5 +1186,7 @@ const App = () => {
   );
 };
 
-const rootElement = document.getElementById('root');
-if (rootElement) createRoot(rootElement).render(<App />);
+export default App;
+
+// const rootElement = document.getElementById('root');
+// if (rootElement) createRoot(rootElement).render(<App />);
