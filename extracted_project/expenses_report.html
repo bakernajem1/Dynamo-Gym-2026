@@ -1,0 +1,117 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DynamoGym | تقرير المصروفات</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #fff; color: #1e293b; }
+        .report-wrapper { padding: 40px; border: 1px solid #f1f5f9; margin-top: 20px; border-radius: 20px; }
+        .report-header { border-bottom: 5px solid #e31e24; padding-bottom: 20px; margin-bottom: 30px; }
+        .gym-logo-text { font-size: 2.8rem; font-weight: 800; color: #0f172a; letter-spacing: -1px; }
+        .gym-logo-text span { color: #e31e24; }
+        .table thead { background-color: #0f172a; color: #fff; }
+        .summary-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; text-align: center; }
+        .signature-space { margin-top: 60px; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+        @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; }
+            .report-wrapper { border: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="report-wrapper">
+            <!-- Header -->
+            <div class="report-header d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="gym-logo-text">Dynamo<span>Gym</span></div>
+                    <p class="text-muted fw-bold mb-0">كشف المصروفات والمدفوعات التشغيلية</p>
+                </div>
+                <div class="text-end">
+                    <h3 class="fw-800">تقرير المصروفات</h3>
+                    <p class="mb-1">الفترة: <span id="period-text">من -- إلى --</span></p>
+                    <p class="mb-0">تاريخ الاستخراج: <span id="print-date"></span></p>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <small class="text-muted d-block fw-bold">إجمالي المصروفات</small>
+                        <h2 class="fw-800 text-danger mb-0" id="total-expenses-sum">0.00 ₪</h2>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <small class="text-muted d-block fw-bold">أكبر بند صرف</small>
+                        <h4 class="fw-800 text-dark mb-0" id="top-category">--</h4>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="summary-card">
+                        <small class="text-muted d-block fw-bold">عدد العمليات</small>
+                        <h2 class="fw-800 text-primary mb-0" id="ops-count">0</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle">
+                    <thead>
+                        <tr class="text-center">
+                            <th width="15%">التاريخ</th>
+                            <th width="20%">الفئة</th>
+                            <th width="45%">البيان / الملاحظات</th>
+                            <th width="20%">المبلغ (₪)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenses-table-body">
+                        <!-- تظهر البيانات هنا -->
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">يرجى استعراض التقارير من داخل لوحة التحكم الرئيسية لنظام DynamoGym.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Signatures -->
+            <div class="row mt-5 pt-4">
+                <div class="col-4">
+                    <div class="signature-space text-center">
+                        <p class="fw-bold">المحاسب</p>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="signature-space text-center">
+                        <p class="fw-bold">المدير المسؤول</p>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="signature-space text-center">
+                        <p class="fw-bold">ختم النادي</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Print Action -->
+        <div class="text-center mt-4 no-print">
+            <button class="btn btn-danger btn-lg rounded-pill px-5 fw-bold shadow" onclick="window.print()">
+                <i class="fas fa-print me-2"></i> طباعة التقرير
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('print-date').innerText = new Date().toLocaleDateString('ar-EG');
+    </script>
+</body>
+</html>

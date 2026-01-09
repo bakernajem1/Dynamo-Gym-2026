@@ -1,0 +1,7 @@
+{
+  "description": "Integrated Management System for DynamoGym",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "name": "DynamoGym همام"
+}
