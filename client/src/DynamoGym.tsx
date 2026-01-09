@@ -427,7 +427,7 @@ const DynamoGymApp = () => {
         <header className="glass-header px-4 d-flex justify-content-between align-items-center bg-white shadow-sm border-bottom">
           <div className="d-flex align-items-center gap-2">
             <button className="btn d-lg-none p-0" onClick={(e)=>{ e.stopPropagation(); setSidebarOpen(true); }}><i className="fas fa-bars fs-4"></i></button>
-            <h5 className="mb-0 fw-800 text-dark">الصندوق: <span className="text-success">{formatNum(cashBalance)} ₪</span></h5>
+            <h5 className="mb-0 fw-800 text-dark">الصندوق: <span className={cashBalance >= 0 ? "text-success" : "text-danger"}>{formatNum(cashBalance)} ₪</span></h5>
           </div>
           <div className="d-flex align-items-center gap-2">
             <div className="d-none d-lg-block fw-bold text-muted small">{new Date().toLocaleDateString('ar-EG')}</div>
@@ -441,7 +441,7 @@ const DynamoGymApp = () => {
               <div className="col-md-3 col-6"><div className="card p-3 text-center border-0 shadow-sm border-top border-4 border-primary h-100"><small className="text-muted fw-bold">الأعضاء</small><h3 className="fw-800 text-primary">{members.filter(m=>m.status==='active').length}</h3></div></div>
               <div className="col-md-3 col-6"><div className="card p-3 text-center border-0 shadow-sm border-top border-4 border-danger h-100"><small className="text-muted fw-bold">ديون لنا</small><h3 className="fw-800 text-danger">{formatNum(reportData.debtsOnOthers)}</h3></div></div>
               <div className="col-md-3 col-6"><div className="card p-3 text-center border-0 shadow-sm border-top border-4 border-info h-100"><small className="text-muted fw-bold">الأصناف</small><h3 className="fw-800 text-info">{inventory.length}</h3></div></div>
-              <div className="col-md-3 col-6"><div className="card p-3 text-center border-0 shadow-sm border-top border-4 border-success h-100"><small className="text-muted fw-bold">الربح الصافي</small><h3 className="fw-800 text-success">{formatNum(reportData.net)}</h3></div></div>
+              <div className="col-md-3 col-6"><div className={`card p-3 text-center border-0 shadow-sm border-top border-4 h-100 ${reportData.net >= 0 ? 'border-success' : 'border-danger'}`}><small className="text-muted fw-bold">الربح الصافي</small><h3 className={`fw-800 ${reportData.net >= 0 ? 'text-success' : 'text-danger'}`}>{formatNum(reportData.net)}</h3></div></div>
               
               <div className="col-12 mt-4 bg-white p-3 rounded-4 shadow-sm border border-danger border-opacity-25">
                 <h6 className="fw-800 text-danger mb-3 border-bottom pb-2"><i className="fas fa-bell me-2"></i>تنبيهات انتهاء الاشتراك (7 أيام فأقل)</h6>
@@ -1044,7 +1044,7 @@ const DynamoGymApp = () => {
                     <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-white text-danger shadow-sm border-top border-4 border-danger h-100"><small className="fw-bold text-muted">الرواتب والمصروفات</small><h3>{formatNum(reportData.salaries + reportData.expenses)} ₪</h3></div></div>
                     <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-white text-warning shadow-sm border-top border-4 border-warning h-100"><small className="fw-bold text-muted">المشتريات</small><h3>{formatNum(reportData.purchases)} ₪</h3></div></div>
                     <div className="col-md-4 col-12"><div className="card p-4 border-0 bg-danger bg-opacity-10 rounded-4 shadow-sm d-flex flex-column align-items-center"><h6 className="fw-800 text-danger mb-1">الديون الكلية للغير لنا</h6><h2 className="fw-800 text-danger mb-0 fs-1">{formatNum(reportData.debtsOnOthers)} ₪</h2></div></div>
-                    <div className="col-md-12 mt-4"><div className="card p-5 bg-dark text-white rounded-5 shadow-2xl border-0 border-top border-5 border-success"><h5 className="opacity-75 fw-bold">الربح الصافي</h5><h1 className="fw-800 text-success" style={{fontSize: '4.5rem'}}>{formatNum(reportData.net)} ₪</h1></div></div>
+                    <div className="col-md-12 mt-4"><div className={`card p-5 bg-dark text-white rounded-5 shadow-2xl border-0 border-top border-5 ${reportData.net >= 0 ? 'border-success' : 'border-danger'}`}><h5 className="opacity-75 fw-bold">الربح الصافي</h5><h1 className={`fw-800 ${reportData.net >= 0 ? 'text-success' : 'text-danger'}`} style={{fontSize: '4.5rem'}}>{formatNum(reportData.net)} ₪</h1></div></div>
                  </>
                )}
             </div>
@@ -1073,10 +1073,6 @@ const DynamoGymApp = () => {
                   <label className="btn btn-outline-primary btn-sm rounded-pill w-100 fw-bold shadow-sm">تغيير اللوجو <input type="file" className="d-none" accept="image/*" onChange={(e)=>{
                     const f = e.target.files?.[0]; if(f){ const r = new FileReader(); r.onloadend=()=>{ const b = r.result as string; setClubLogo(b); localStorage.setItem('dynamogym_logo', b); }; r.readAsDataURL(f); }
                   }} /></label>
-                </div>
-                <div className="card p-4 border-0 bg-danger bg-opacity-10 rounded-4 shadow-sm shadow-lg">
-                  <h6 className="fw-800 text-danger mb-3">منطقة خطرة ⚠️</h6>
-                  <button className="btn btn-danger w-100 rounded-pill py-3 fw-bold shadow-sm" onClick={()=>{ if(confirm('سيتم حذف كل البيانات نهائياً؟')){ localStorage.clear(); location.reload(); } }}>تصفير كامل البيانات</button>
                 </div>
               </div>
             </div>
