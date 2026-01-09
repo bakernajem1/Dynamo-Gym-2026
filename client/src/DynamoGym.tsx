@@ -19,6 +19,47 @@ const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY;
 const isConfigValid = !!supabaseUrl && !!supabaseAnonKey && supabaseUrl.startsWith('http');
 const supabase = isConfigValid ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
+// دالة فحص اتصال قاعدة البيانات
+const requireSupabase = () => {
+  if (!supabase) {
+    alert('⚠️ قاعدة البيانات غير متصلة!\n\nيرجى تكوين Supabase أولاً لتفعيل هذه الميزة.\n\nأضف متغيرات البيئة:\n- VITE_SUPABASE_URL\n- VITE_SUPABASE_ANON_KEY');
+    return false;
+  }
+  return true;
+};
+
+// بيانات تجريبية للعرض
+const DEMO_MEMBERS: Member[] = [
+  { id: 'demo-1', name: 'أحمد محمد', phone: '0501234567', subscription_plan: 'شهر واحد', plan_price: 130, discount: 0, total_debt: 0, start_date: new Date().toISOString().split('T')[0], end_date: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0], weight: 75, height: 175, photo: null, status: 'active', created_at: new Date().toISOString() },
+  { id: 'demo-2', name: 'محمد علي', phone: '0509876543', subscription_plan: '3 شهور', plan_price: 350, discount: 50, total_debt: 100, start_date: new Date().toISOString().split('T')[0], end_date: new Date(Date.now() + 90*24*60*60*1000).toISOString().split('T')[0], weight: 80, height: 180, photo: null, status: 'active', created_at: new Date().toISOString() },
+  { id: 'demo-3', name: 'خالد سعيد', phone: '0551112222', subscription_plan: 'شهرين', plan_price: 240, discount: 0, total_debt: 50, start_date: new Date(Date.now() - 60*24*60*60*1000).toISOString().split('T')[0], end_date: new Date(Date.now() - 5*24*60*60*1000).toISOString().split('T')[0], weight: 70, height: 170, photo: null, status: 'frozen', created_at: new Date().toISOString() }
+];
+
+const DEMO_PRODUCTS: Product[] = [
+  { id: 'prod-1', name: 'بروتين واي', quantity: 25, sale_price: 150 },
+  { id: 'prod-2', name: 'كرياتين', quantity: 30, sale_price: 80 },
+  { id: 'prod-3', name: 'شيكر', quantity: 50, sale_price: 25 },
+  { id: 'prod-4', name: 'قفازات تدريب', quantity: 20, sale_price: 45 }
+];
+
+const DEMO_EMPLOYEES: Employee[] = [
+  { id: 'emp-1', name: 'عبدالله الشمري', phone: '0551234567', job_title: 'مدرب كمال أجسام', salary: 4000 },
+  { id: 'emp-2', name: 'فهد العتيبي', phone: '0559876543', job_title: 'موظف استقبال', salary: 3000 }
+];
+
+const DEMO_SUPPLIERS: Supplier[] = [
+  { id: 'sup-1', name: 'شركة المكملات الغذائية', phone: '0112223344', category: 'مكملات', total_debt: 500 },
+  { id: 'sup-2', name: 'مؤسسة الأجهزة الرياضية', phone: '0115556666', category: 'أجهزة', total_debt: 0 }
+];
+
+const DEMO_TRANSACTIONS: TransactionRecord[] = [
+  { id: 'trans-1', type: 'MEMBERSHIP', amount: 130, discount: 0, label: 'اشتراك: أحمد محمد', metadata: { member_id: 'demo-1' }, created_at: new Date().toISOString() },
+  { id: 'trans-2', type: 'SALE', amount: 175, discount: 0, label: 'مبيعات نقدية', metadata: {}, created_at: new Date().toISOString() },
+  { id: 'trans-3', type: 'EXPENSE', amount: 500, discount: 0, label: 'إيجار الشهر', metadata: { category: 'إيجار' }, created_at: new Date().toISOString() },
+  { id: 'trans-4', type: 'EXPENSE', amount: 150, discount: 0, label: 'فاتورة الكهرباء', metadata: { category: 'كهرباء' }, created_at: new Date().toISOString() },
+  { id: 'trans-5', type: 'PURCHASE', amount: 1000, discount: 0, label: 'شراء مكملات', metadata: { supplier_id: 'sup-1' }, created_at: new Date().toISOString() }
+];
+
 // --- دالات مساعدة ---
 const getWhatsAppLink = (phone: string) => `https://wa.me/${phone?.replace(/[^0-9]/g, '')}`;
 const handleAutoSelect = (e: any) => e.target.select();
@@ -116,6 +157,13 @@ const DynamoGymApp = () => {
 
   const fetchData = useCallback(async () => {
     if (!supabase) {
+      // تحميل البيانات التجريبية في وضع العرض
+      setMembers(DEMO_MEMBERS);
+      setInventory(DEMO_PRODUCTS);
+      setEmployees(DEMO_EMPLOYEES);
+      setSuppliers(DEMO_SUPPLIERS);
+      setTransactions(DEMO_TRANSACTIONS);
+      setCustomers([]);
       setLoading(false);
       return;
     }
