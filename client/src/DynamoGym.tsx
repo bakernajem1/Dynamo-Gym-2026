@@ -276,27 +276,27 @@ const DynamoGymApp = () => {
       };
 
       if (memberForm.isEditOnly) {
-        await supabase!.from('members').update(payload).eq('id', memberForm.id);
+        if(!requireSupabase()) return; await supabase.from('members').update(payload).eq('id', memberForm.id);
       } else {
         let memberId = memberForm.id;
         if (memberForm.id) {
           const current = members.find(m => m.id === memberForm.id);
-          await supabase!.from('members').update({ ...payload, total_debt: (current?.total_debt || 0) + debt }).eq('id', memberForm.id);
+          if(!requireSupabase()) return; await supabase.from('members').update({ ...payload, total_debt: (current?.total_debt || 0) + debt }).eq('id', memberForm.id);
         } else {
-          const { data, error } = await supabase!.from('members').insert({ ...payload, total_debt: debt }).select().single();
+          const { data, error } = if(!requireSupabase()) return; await supabase.from('members').insert({ ...payload, total_debt: debt }).select().single();
           if (error) throw error;
           memberId = data.id;
         }
 
         const emp = employees.find(ev => ev.name === memberForm.name || ev.phone === memberForm.phone);
-        await supabase!.from('transactions').insert({
+        if(!requireSupabase()) return; await supabase.from('transactions').insert({
           type: 'MEMBERSHIP', amount: paid, label: `${memberForm.isRenew ? 'تجديد' : 'اشتراك'}: ${memberForm.name}`,
           metadata: { member_id: memberId, debt_added: debt, employee_id: emp?.id || null }
         });
 
         if (debt > 0) {
           const custExists = customers.some(c => c.full_name === memberForm.name || c.phone_number === memberForm.phone);
-          if (!custExists) await supabase!.from('customers').insert([{ full_name: memberForm.name, phone_number: memberForm.phone, total_debt: 0 }]);
+          if (!custExists) if(!requireSupabase()) return; await supabase.from('customers').insert([{ full_name: memberForm.name, phone_number: memberForm.phone, total_debt: 0 }]);
         }
       }
       await fetchData(); navigateTo('members'); alert('تم الحفظ بنجاح ✅');
@@ -321,19 +321,19 @@ const DynamoGymApp = () => {
       const person = [...members, ...customers, ...employees].find(p => p.id === posForm.personId);
       const emp = employees.find(e => e.id === posForm.personId);
 
-      await supabase!.from('transactions').insert({ 
+      if(!requireSupabase()) return; await supabase.from('transactions').insert({ 
         type: 'SALE', amount: paid, label: `مبيعات: ${person?.name || (person as any)?.full_name || 'نقدي'}`, 
         metadata: { person_id: posForm.personId, debt_added: debt, employee_id: emp?.id || null } 
       });
 
       if (debt > 0 && person) {
         const table = members.some(m => m.id === person.id) ? 'members' : 'customers';
-        const { data } = await supabase!.from(table).select('total_debt').eq('id', person.id).single();
-        await supabase!.from(table).update({ total_debt: (data?.total_debt || 0) + debt }).eq('id', person.id);
+        const { data } = if(!requireSupabase()) return; await supabase.from(table).select('total_debt').eq('id', person.id).single();
+        if(!requireSupabase()) return; await supabase.from(table).update({ total_debt: (data?.total_debt || 0) + debt }).eq('id', person.id);
       }
 
       for (const item of posCart) {
-        await supabase!.from('products').update({ quantity: (item.product.quantity || 0) - item.qty }).eq('id', item.product.id);
+        if(!requireSupabase()) return; await supabase.from('products').update({ quantity: (item.product.quantity || 0) - item.qty }).eq('id', item.product.id);
       }
 
       setPosCart([]); setPosForm({ personId:'', discount:'0', paid:'0', mode:'CASH' });
@@ -358,18 +358,18 @@ const DynamoGymApp = () => {
       };
 
       if (purchaseForm.editId) {
-        await supabase!.from('transactions').update(transData).eq('id', purchaseForm.editId);
+        if(!requireSupabase()) return; await supabase.from('transactions').update(transData).eq('id', purchaseForm.editId);
       } else {
-        await supabase!.from('transactions').insert(transData);
+        if(!requireSupabase()) return; await supabase.from('transactions').insert(transData);
       }
 
       if (debt > 0 && supplier) {
-        const { data } = await supabase!.from('suppliers').select('total_debt').eq('id', supplier.id).single();
-        await supabase!.from('suppliers').update({ total_debt: (data?.total_debt || 0) + debt }).eq('id', supplier.id);
+        const { data } = if(!requireSupabase()) return; await supabase.from('suppliers').select('total_debt').eq('id', supplier.id).single();
+        if(!requireSupabase()) return; await supabase.from('suppliers').update({ total_debt: (data?.total_debt || 0) + debt }).eq('id', supplier.id);
       }
 
       for (const item of purchaseCart) {
-        await supabase!.from('products').update({ quantity: (item.product.quantity || 0) + item.qty }).eq('id', item.product.id);
+        if(!requireSupabase()) return; await supabase.from('products').update({ quantity: (item.product.quantity || 0) + item.qty }).eq('id', item.product.id);
       }
       setPurchaseCart([]); setPurchaseForm({ supplierId:'', discount:'0', paid:'0', mode:'CASH', editId:'' });
       await fetchData(); alert('تم الحفظ ✅');
@@ -480,7 +480,7 @@ const DynamoGymApp = () => {
                         <button className="btn btn-xs btn-outline-danger extra-small px-2 rounded-pill" onClick={async(e)=>{
                           e.stopPropagation();
                           if(m.total_debt > 0) return alert('لا يمكن حذف العضو لوجود دين مستحق!');
-                          if(confirm('هل أنت متأكد من الحذف؟')){ await supabase!.from('members').delete().eq('id', m.id); await fetchData(); }
+                          if(confirm('هل أنت متأكد من الحذف؟')){ if(!requireSupabase()) return; await supabase.from('members').delete().eq('id', m.id); await fetchData(); }
                         }}><i className="fas fa-trash"></i></button>
                       </div>
                     </div>
@@ -629,7 +629,7 @@ const DynamoGymApp = () => {
                               <td className="fw-bold text-success">{formatNum(t.amount)} ₪</td>
                               <td><div className="d-flex gap-1">
                                 <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm">تعديل</button>
-                                <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{ if(confirm('حذف الفاتورة؟')){ await supabase!.from('transactions').delete().eq('id', t.id); await fetchData(); } }}><i className="fas fa-trash"></i></button>
+                                <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{ if(confirm('حذف الفاتورة؟')){ if(!requireSupabase()) return; await supabase.from('transactions').delete().eq('id', t.id); await fetchData(); } }}><i className="fas fa-trash"></i></button>
                               </div></td>
                             </tr>
                           ))}</tbody>
@@ -648,8 +648,8 @@ const DynamoGymApp = () => {
                   <form onSubmit={async(e)=>{
                     e.preventDefault(); setLoading(true); try{ 
                       const payload = { name: productForm.name, sale_price: Number(productForm.price) };
-                      if(productForm.id) await supabase!.from('products').update(payload).eq('id', productForm.id);
-                      else await supabase!.from('products').insert([{...payload, quantity: 0}]); 
+                      if(productForm.id) if(!requireSupabase()) return; await supabase.from('products').update(payload).eq('id', productForm.id);
+                      else if(!requireSupabase()) return; await supabase.from('products').insert([{...payload, quantity: 0}]); 
                       setProductForm({id:'', name:'', price:'0'}); await fetchData(); alert('تم الحفظ ✅');
                     }catch(err:any){alert(err.message);}finally{setLoading(false);}
                   }} className="row g-2">
@@ -675,7 +675,7 @@ const DynamoGymApp = () => {
                           <td><div className="d-flex gap-1">
                             <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={()=>setProductForm({id:p.id, name:p.name, price:String(p.sale_price)})}><i className="fas fa-edit"></i></button>
                             <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{
-                            if(confirm('حذف الصنف؟')){ await supabase!.from('products').delete().eq('id', p.id); await fetchData(); }
+                            if(confirm('حذف الصنف؟')){ if(!requireSupabase()) return; await supabase.from('products').delete().eq('id', p.id); await fetchData(); }
                           }}><i className="fas fa-trash"></i></button></div></td>
                         </tr>
                       ))}</tbody>
@@ -760,7 +760,7 @@ const DynamoGymApp = () => {
                             <td className="fw-bold text-primary">{formatNum(t.amount)} ₪</td>
                             <td><div className="d-flex gap-1">
                               <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm">تعديل</button>
-                              <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{ if(confirm('حذف؟')){ await supabase!.from('transactions').delete().eq('id', t.id); await fetchData(); } }}><i className="fas fa-trash"></i></button>
+                              <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{ if(confirm('حذف؟')){ if(!requireSupabase()) return; await supabase.from('transactions').delete().eq('id', t.id); await fetchData(); } }}><i className="fas fa-trash"></i></button>
                             </div></td>
                           </tr>
                         ))}</tbody>
@@ -781,8 +781,8 @@ const DynamoGymApp = () => {
                     if(!employeeForm.id && checkDuplicate(employeeForm.name, employeeForm.phone)) return alert('الموظف موجود مسبقاً!');
                     setLoading(true); try{ 
                       const p = {name:employeeForm.name, phone:employeeForm.phone, job_title:employeeForm.job, salary:Number(employeeForm.salary)};
-                      if(employeeForm.id) await supabase!.from('employees').update(p).eq('id', employeeForm.id);
-                      else await supabase!.from('employees').insert([p]);
+                      if(employeeForm.id) if(!requireSupabase()) return; await supabase.from('employees').update(p).eq('id', employeeForm.id);
+                      else if(!requireSupabase()) return; await supabase.from('employees').insert([p]);
                       setEmployeeForm({id:'', name:'', phone:'', job:'مدرب لياقة', salary:'0'}); await fetchData(); alert('تم الحفظ ✅');
                     } catch(err:any){alert(err.message);} finally{setLoading(false);}
                   }} className="row g-2">
@@ -801,7 +801,7 @@ const DynamoGymApp = () => {
                       e.preventDefault(); const f = e.target as any; const amt = Number(f.amt.value); const empId = f.eid.value; const bal = getEmployeeBalance(empId);
                       if (amt > bal) return alert(`الرصيد المتاح ${formatNum(bal)} ₪ فقط! (الراتب - السلف - الديون)`);
                       setLoading(true); try {
-                        await supabase!.from('transactions').insert({ type: f.type.value, amount: amt, label: `${f.type.value==='SALARY_PAYMENT'?'راتب':'سلفة'} لـ: ${employees.find(ev=>ev.id===empId)?.name}`, metadata: { employee_id: empId, month: f.month.value, year: f.year.value } });
+                        if(!requireSupabase()) return; await supabase.from('transactions').insert({ type: f.type.value, amount: amt, label: `${f.type.value==='SALARY_PAYMENT'?'راتب':'سلفة'} لـ: ${employees.find(ev=>ev.id===empId)?.name}`, metadata: { employee_id: empId, month: f.month.value, year: f.year.value } });
                         f.reset(); await fetchData(); alert('تم الصرف ✅');
                       } catch(err: any){ alert(err.message); } finally { setLoading(false); }
                    }} className="row g-2">
@@ -908,7 +908,7 @@ const DynamoGymApp = () => {
                                <button className="btn btn-sm btn-outline-dark rounded-pill px-3 shadow-sm" onClick={()=>setStatementPerson({...c, type: 'customer'})}>كشف</button>
                                <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{
                                  if(((c as any).total_debt || 0) > 0) return alert('لا يمكن الحذف وعليه دين!');
-                                 if(confirm('حذف البيانات؟')){ await supabase!.from((c as any).full_name ? 'customers' : (c as any).salary ? 'employees' : 'members').delete().eq('id', c.id); fetchData(); }
+                                 if(confirm('حذف البيانات؟')){ if(!requireSupabase()) return; await supabase.from((c as any).full_name ? 'customers' : (c as any).salary ? 'employees' : 'members').delete().eq('id', c.id); fetchData(); }
                                }}><i className="fas fa-trash"></i></button>
                             </div></td>
                           </tr>
@@ -938,9 +938,9 @@ const DynamoGymApp = () => {
                         metadata: { category: expenseForm.category }
                       };
                       if (expenseForm.id) {
-                        await supabase!.from('transactions').update(payload).eq('id', expenseForm.id);
+                        if(!requireSupabase()) return; await supabase.from('transactions').update(payload).eq('id', expenseForm.id);
                       } else {
-                        await supabase!.from('transactions').insert([payload]);
+                        if(!requireSupabase()) return; await supabase.from('transactions').insert([payload]);
                       }
                       setExpenseForm({ id: '', label: '', amount: '0', category: 'عامة' });
                       await fetchData();
@@ -1000,7 +1000,7 @@ const DynamoGymApp = () => {
                                 <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={() => setExpenseForm({ id: t.id, label: t.label, amount: String(t.amount), category: t.metadata?.category || 'عامة' })}><i className="fas fa-edit"></i></button>
                                 <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async () => {
                                   if (confirm('هل تريد حذف هذا المصروف؟')) {
-                                    await supabase!.from('transactions').delete().eq('id', t.id);
+                                    if(!requireSupabase()) return; await supabase.from('transactions').delete().eq('id', t.id);
                                     await fetchData();
                                   }
                                 }}><i className="fas fa-trash"></i></button>
@@ -1081,8 +1081,8 @@ const DynamoGymApp = () => {
                     <form onSubmit={async(e)=>{
                       e.preventDefault(); setLoading(true); try{ 
                         const p = {name:supplierForm.name, phone:supplierForm.phone, category:supplierForm.category};
-                        if(supplierForm.id) await supabase!.from('suppliers').update(p).eq('id', supplierForm.id);
-                        else await supabase!.from('suppliers').insert([{...p, total_debt: 0}]);
+                        if(supplierForm.id) if(!requireSupabase()) return; await supabase.from('suppliers').update(p).eq('id', supplierForm.id);
+                        else if(!requireSupabase()) return; await supabase.from('suppliers').insert([{...p, total_debt: 0}]);
                         setSupplierForm({id:'', name:'', phone:'', category:''}); await fetchData(); alert('تم الحفظ ✅');
                       } catch(err:any){alert(err.message);} finally{setLoading(false);}
                     }} className="row g-2">
@@ -1134,7 +1134,7 @@ const DynamoGymApp = () => {
                     navigateTo('register'); setMemberDetails(null);
                  }}>تجديد الاشتراك 🔄</button>
                  <button className={`btn rounded-pill px-4 fw-bold shadow-sm py-2 ${memberDetails.status==='frozen'?'btn-success':'btn-warning'}`} onClick={async ()=>{
-                    await supabase!.from('members').update({status: memberDetails.status==='frozen'?'active':'frozen'}).eq('id', memberDetails.id); 
+                    if(!requireSupabase()) return; await supabase.from('members').update({status: memberDetails.status==='frozen'?'active':'frozen'}).eq('id', memberDetails.id); 
                     fetchData(); setMemberDetails(null);
                  }}>{memberDetails.status==='frozen'?'تنشيط':'تجميد'}</button>
                  <button className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm py-2" onClick={()=>{
@@ -1155,11 +1155,11 @@ const DynamoGymApp = () => {
                 e.preventDefault(); const amt = Number((e.target as any).amt.value); setLoading(true);
                 try {
                   const table = (repayingPerson as any).full_name ? 'customers' : ((repayingPerson as any).salary ? 'employees' : (members.some(m=>m.id===repayingPerson.id) ? 'members' : 'suppliers'));
-                  const { data } = await supabase!.from(table).select('total_debt').eq('id', repayingPerson.id).single();
-                  await supabase!.from(table).update({ total_debt: Math.max(0, (data?.total_debt || 0) - amt) }).eq('id', repayingPerson.id);
+                  const { data } = if(!requireSupabase()) return; await supabase.from(table).select('total_debt').eq('id', repayingPerson.id).single();
+                  if(!requireSupabase()) return; await supabase.from(table).update({ total_debt: Math.max(0, (data?.total_debt || 0) - amt) }).eq('id', repayingPerson.id);
                   
                   const pKey = (repayingPerson as any).full_name ? 'customer_id' : ((repayingPerson as any).salary ? 'employee_id' : (table === 'members' ? 'member_id' : 'supplier_id'));
-                  await supabase!.from('transactions').insert({ type: 'DEBT_PAYMENT', amount: amt, label: `تسوية: ${(repayingPerson as any).full_name || repayingPerson.name}`, metadata: { [pKey]: repayingPerson.id } });
+                  if(!requireSupabase()) return; await supabase.from('transactions').insert({ type: 'DEBT_PAYMENT', amount: amt, label: `تسوية: ${(repayingPerson as any).full_name || repayingPerson.name}`, metadata: { [pKey]: repayingPerson.id } });
                   setRepayingPerson(null); fetchData();
                 } catch(err:any){alert(err.message);} finally{setLoading(false);}
               }}>
