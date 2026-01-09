@@ -72,7 +72,7 @@ interface TransactionRecord {
   amount: number; discount: number; label: string; metadata: any; created_at: string;
 }
 
-const App = () => {
+const DynamoGymApp = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(localStorage.getItem('dynamogym_auth') === 'true');
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
   const [view, setView] = useState('dashboard');
@@ -1186,7 +1186,7 @@ const App = () => {
   );
 };
 
-export default App;
+export default DynamoGymApp;
 
 // const rootElement = document.getElementById('root');
 // if (rootElement) createRoot(rootElement).render(<App />);
