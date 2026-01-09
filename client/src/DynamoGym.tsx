@@ -931,8 +931,8 @@ const DynamoGymApp = () => {
           {view === 'expenses' && (
             <div className="row g-3">
               <div className="col-lg-4">
-                <div className="card p-3 shadow-sm rounded-4 border-0 bg-white border-top border-4 border-warning shadow-lg">
-                  <h6 className="fw-800 text-warning mb-3">{expenseForm.id ? 'تعديل مصروف' : 'إضافة مصروف جديد'}</h6>
+                <div className="card p-3 shadow-sm rounded-4 border-0 bg-white border-top border-4 border-danger shadow-lg">
+                  <h6 className="fw-800 text-danger mb-3">{expenseForm.id ? 'تعديل مصروف' : 'إضافة مصروف جديد'}</h6>
                   <form onSubmit={async (e) => {
                     e.preventDefault();
                     if (!requireSupabase()) return;
@@ -968,15 +968,15 @@ const DynamoGymApp = () => {
                       <option value="أخرى">أخرى</option>
                     </select>
                     <div className="small text-muted ms-2">المبلغ (₪)</div>
-                    <input type="number" step="0.01" className="form-control rounded-pill shadow-sm text-center fw-bold border-warning" onFocus={handleAutoSelect} placeholder="المبلغ" value={expenseForm.amount} onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })} required />
-                    <button className="btn btn-warning w-100 rounded-pill py-2 fw-bold shadow text-white mt-2">حفظ ✅</button>
+                    <input type="number" step="0.01" className="form-control rounded-pill shadow-sm text-center fw-bold border-danger" onFocus={handleAutoSelect} placeholder="المبلغ" value={expenseForm.amount} onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })} required />
+                    <button className="btn btn-danger w-100 rounded-pill py-2 fw-bold shadow mt-2">حفظ ✅</button>
                     {expenseForm.id && <button type="button" className="btn btn-link text-muted extra-small" onClick={() => setExpenseForm({ id: '', label: '', amount: '0', category: 'عامة' })}>إلغاء</button>}
                   </form>
                 </div>
-                <div className="card p-3 shadow-sm rounded-4 border-0 bg-warning bg-opacity-10 border-top border-4 border-warning mt-3">
+                <div className="card p-3 shadow-sm rounded-4 border-0 bg-danger bg-opacity-10 border-top border-4 border-danger mt-3">
                   <div className="text-center">
                     <small className="text-muted fw-bold">إجمالي المصروفات</small>
-                    <h3 className="fw-800 text-warning mb-0">{formatNum(transactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0))} ₪</h3>
+                    <h3 className="fw-800 text-danger mb-0">{formatNum(transactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0))} ₪</h3>
                   </div>
                 </div>
               </div>
@@ -991,7 +991,7 @@ const DynamoGymApp = () => {
                   </div>
                   <div className="mb-3 p-2 bg-light rounded-3 text-center">
                     <small className="text-muted fw-bold">مصروفات شهر {MONTHS_AR[selectedMonth - 1]} {selectedYear}: </small>
-                    <span className="fw-800 text-warning">{formatNum(transactions.filter(t => t.type === 'EXPENSE' && new Date(t.created_at).getMonth() + 1 === selectedMonth && new Date(t.created_at).getFullYear() === selectedYear).reduce((s, t) => s + t.amount, 0))} ₪</span>
+                    <span className="fw-800 text-danger">{formatNum(transactions.filter(t => t.type === 'EXPENSE' && new Date(t.created_at).getMonth() + 1 === selectedMonth && new Date(t.created_at).getFullYear() === selectedYear).reduce((s, t) => s + t.amount, 0))} ₪</span>
                   </div>
                   <div className="table-responsive">
                     <table className="table table-hover extra-small align-middle text-end mb-0">
@@ -1001,7 +1001,7 @@ const DynamoGymApp = () => {
                           <tr key={t.id}>
                             <td className="text-muted">{new Date(t.created_at).toLocaleDateString('ar-EG')}</td>
                             <td className="fw-bold">{t.label}</td>
-                            <td><span className="badge bg-warning bg-opacity-25 text-warning rounded-pill px-3">{t.metadata?.category || 'عامة'}</span></td>
+                            <td><span className="badge bg-danger bg-opacity-25 text-danger rounded-pill px-3">{t.metadata?.category || 'عامة'}</span></td>
                             <td className="fw-800 text-danger">{formatNum(t.amount)} ₪</td>
                             <td>
                               <div className="d-flex gap-1">
