@@ -115,7 +115,10 @@ const DynamoGymApp = () => {
   const navigateTo = (v: string) => { setView(v); setSidebarOpen(false); setSearchTerm(''); };
 
   const fetchData = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [m, c, i, s, e, t] = await Promise.all([
