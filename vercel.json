@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "buildCommand": "npx vite build --config vite.config.vercel.ts",
+  "outputDirectory": "dist/public",
+  "framework": "vite"
+}
