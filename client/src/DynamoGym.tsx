@@ -238,8 +238,10 @@ const DynamoGymApp = () => {
 
   const cashBalance = useMemo(() => {
     return transactions.reduce((acc, t) => {
-      if(['SALE', 'MEMBERSHIP', 'DEBT_PAYMENT', 'SUPPLIER_PAYMENT'].includes(t.type)) return acc + t.amount;
-      if(['PURCHASE', 'EXPENSE', 'SALARY_PAYMENT', 'ADVANCE'].includes(t.type)) return acc - t.amount;
+      // إضافة: مبيعات، اشتراكات، سداد ديون الأعضاء/العملاء
+      if(['SALE', 'MEMBERSHIP', 'DEBT_PAYMENT'].includes(t.type)) return acc + t.amount;
+      // خصم: مشتريات، مصروفات، رواتب، سلف، سداد ديون الموردين
+      if(['PURCHASE', 'EXPENSE', 'SALARY_PAYMENT', 'ADVANCE', 'SUPPLIER_PAYMENT'].includes(t.type)) return acc - t.amount;
       return acc;
     }, 0);
   }, [transactions]);
