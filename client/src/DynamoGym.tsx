@@ -1167,7 +1167,8 @@ const DynamoGymApp = () => {
                   await supabase!.from(table).update({ total_debt: Math.max(0, (data?.total_debt || 0) - amt) }).eq('id', repayingPerson.id);
                   
                   const pKey = (repayingPerson as any).full_name ? 'customer_id' : ((repayingPerson as any).salary ? 'employee_id' : (table === 'members' ? 'member_id' : 'supplier_id'));
-                  await supabase!.from('transactions').insert({ type: 'DEBT_PAYMENT', amount: amt, label: `تسوية: ${(repayingPerson as any).full_name || repayingPerson.name}`, metadata: { [pKey]: repayingPerson.id } });
+                  const transactionType = table === 'suppliers' ? 'SUPPLIER_PAYMENT' : 'DEBT_PAYMENT';
+                  await supabase!.from('transactions').insert({ type: transactionType, amount: amt, label: `تسوية: ${(repayingPerson as any).full_name || repayingPerson.name}`, metadata: { [pKey]: repayingPerson.id } });
                   setRepayingPerson(null); fetchData();
                 } catch(err:any){alert(err.message);} finally{setLoading(false);}
               }}>
