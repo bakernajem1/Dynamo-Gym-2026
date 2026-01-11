@@ -238,8 +238,10 @@ const DynamoGymApp = () => {
 
   const cashBalance = useMemo(() => {
     return transactions.reduce((acc, t) => {
-      if(['SALE', 'MEMBERSHIP', 'DEBT_PAYMENT', 'SUPPLIER_PAYMENT'].includes(t.type)) return acc + t.amount;
-      if(['PURCHASE', 'EXPENSE', 'SALARY_PAYMENT', 'ADVANCE'].includes(t.type)) return acc - t.amount;
+      // إضافة: مبيعات، اشتراكات، سداد ديون الأعضاء/العملاء
+      if(['SALE', 'MEMBERSHIP', 'DEBT_PAYMENT'].includes(t.type)) return acc + t.amount;
+      // خصم: مشتريات، مصروفات، رواتب، سلف، سداد ديون الموردين
+      if(['PURCHASE', 'EXPENSE', 'SALARY_PAYMENT', 'ADVANCE', 'SUPPLIER_PAYMENT'].includes(t.type)) return acc - t.amount;
       return acc;
     }, 0);
   }, [transactions]);
@@ -1160,12 +1162,17 @@ const DynamoGymApp = () => {
               <form onSubmit={async(e)=>{
                 e.preventDefault(); if(!requireSupabase()) return; const amt = Number((e.target as any).amt.value); setLoading(true);
                 try {
-                  const table = (repayingPerson as any).full_name ? 'customers' : ((repayingPerson as any).salary ? 'employees' : (members.some(m=>m.id===repayingPerson.id) ? 'members' : 'suppliers'));
+                  // تحديد نوع الشخص باستخدام الـ type المرسل مباشرة
+                  const isSupplier = (repayingPerson as any).type === 'supplier';
+                  const table = (repayingPerson as any).full_name ? 'customers' : ((repayingPerson as any).salary ? 'employees' : (isSupplier ? 'suppliers' : 'members'));
                   const { data } = await supabase!.from(table).select('total_debt').eq('id', repayingPerson.id).single();
                   await supabase!.from(table).update({ total_debt: Math.max(0, (data?.total_debt || 0) - amt) }).eq('id', repayingPerson.id);
                   
-                  const pKey = (repayingPerson as any).full_name ? 'customer_id' : ((repayingPerson as any).salary ? 'employee_id' : (table === 'members' ? 'member_id' : 'supplier_id'));
-                  await supabase!.from('transactions').insert({ type: 'DEBT_PAYMENT', amount: amt, label: `تسوية: ${(repayingPerson as any).full_name || repayingPerson.name}`, metadata: { [pKey]: repayingPerson.id } });
+                  const pKey = (repayingPerson as any).full_name ? 'customer_id' : ((repayingPerson as any).salary ? 'employee_id' : (isSupplier ? 'supplier_id' : 'member_id'));
+                  // سداد دين المورد = SUPPLIER_PAYMENT (خصم من الصندوق)
+                  // تحصيل دين من عضو/عميل = DEBT_PAYMENT (إضافة للصندوق)
+                  const transactionType = isSupplier ? 'SUPPLIER_PAYMENT' : 'DEBT_PAYMENT';
+                  await supabase!.from('transactions').insert({ type: transactionType, amount: amt, label: `تسوية: ${(repayingPerson as any).full_name || repayingPerson.name}`, metadata: { [pKey]: repayingPerson.id } });
                   setRepayingPerson(null); fetchData();
                 } catch(err:any){alert(err.message);} finally{setLoading(false);}
               }}>
