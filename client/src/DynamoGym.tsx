@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
+import { Html5Qrcode } from 'html5-qrcode';
 
 /**
  * DynamoGym ERP - Version 51.0
@@ -36,10 +37,10 @@ const DEMO_MEMBERS: Member[] = [
 ];
 
 const DEMO_PRODUCTS: Product[] = [
-  { id: 'prod-1', name: 'بروتين واي', quantity: 25, sale_price: 150 },
-  { id: 'prod-2', name: 'كرياتين', quantity: 30, sale_price: 80 },
-  { id: 'prod-3', name: 'شيكر', quantity: 50, sale_price: 25 },
-  { id: 'prod-4', name: 'قفازات تدريب', quantity: 20, sale_price: 45 }
+  { id: 'prod-1', name: 'بروتين واي', quantity: 25, sale_price: 150, barcode: '6281100000001' },
+  { id: 'prod-2', name: 'كرياتين', quantity: 30, sale_price: 80, barcode: '6281100000002' },
+  { id: 'prod-3', name: 'شيكر', quantity: 50, sale_price: 25, barcode: '6281100000003' },
+  { id: 'prod-4', name: 'قفازات تدريب', quantity: 20, sale_price: 45, barcode: '6281100000004' }
 ];
 
 const DEMO_EMPLOYEES: Employee[] = [
@@ -97,7 +98,7 @@ interface Customer {
 }
 
 interface Product {
-  id: string; name: string; quantity: number; sale_price: number;
+  id: string; name: string; quantity: number; sale_price: number; barcode?: string;
 }
 
 interface Supplier {
@@ -136,7 +137,9 @@ const DynamoGymApp = () => {
 
   // نماذج الإدخال
   const [memberForm, setMemberForm] = useState({ id:'', name:'', phone:'', plan:'شهر واحد', price:'130', discount:'0', paid:'0', start:new Date().toISOString().split('T')[0], weight:'', height:'', photo:'', mode:'CASH', isRenew: false, isEditOnly: false });
-  const [productForm, setProductForm] = useState({ id:'', name:'', price:'0' });
+  const [productForm, setProductForm] = useState({ id:'', name:'', price:'0', barcode:'' });
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState<'inventory'|'pos'|'purchase'|null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const [employeeForm, setEmployeeForm] = useState({ id:'', name:'', phone:'', job:'مدرب لياقة', salary:'0' });
   const [supplierForm, setSupplierForm] = useState({ id:'', name:'', phone:'', category:'' });
   const [passForm, setPassForm] = useState({ old: '', newP: '', conf: '' });
@@ -195,6 +198,67 @@ const DynamoGymApp = () => {
     setLoginForm({user:'', pass:''}); 
     setView('dashboard');
   };
+
+  // --- ماسح الباركود بالكاميرا ---
+  const startBarcodeScanner = useCallback(async (context: 'inventory'|'pos'|'purchase') => {
+    setShowBarcodeScanner(context);
+    setTimeout(async () => {
+      try {
+        const scannerId = 'barcode-scanner-container';
+        if (scannerRef.current) {
+          try { await scannerRef.current.stop(); } catch(e) {}
+        }
+        const scanner = new Html5Qrcode(scannerId);
+        scannerRef.current = scanner;
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 100 } },
+          (decodedText) => {
+            handleBarcodeScanned(decodedText, context);
+            stopBarcodeScanner();
+          },
+          () => {}
+        );
+      } catch (err: any) {
+        alert('خطأ في تشغيل الكاميرا: ' + err.message);
+        setShowBarcodeScanner(null);
+      }
+    }, 300);
+  }, []);
+
+  const stopBarcodeScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      try { await scannerRef.current.stop(); } catch(e) {}
+      scannerRef.current = null;
+    }
+    setShowBarcodeScanner(null);
+  }, []);
+
+  const handleBarcodeScanned = useCallback((barcode: string, context: 'inventory'|'pos'|'purchase') => {
+    const product = inventory.find(p => p.barcode === barcode);
+    if (context === 'inventory') {
+      if (product) {
+        setProductForm({ id: product.id, name: product.name, price: String(product.sale_price), barcode: product.barcode || '' });
+        alert('تم العثور على الصنف! يمكنك تعديله الآن.');
+      } else {
+        setProductForm({ id: '', name: '', price: '0', barcode });
+        alert('باركود جديد! أدخل بيانات الصنف.');
+      }
+    } else if (context === 'pos') {
+      if (product) {
+        if (product.quantity <= 0) { alert('الكمية صفر!'); return; }
+        const ex = posCart.find(i => i.product.id === product.id);
+        if (ex) setPosCart(posCart.map(i => i.product.id === product.id ? {...i, qty: i.qty+1} : i));
+        else setPosCart([...posCart, {product, qty: 1}]);
+      } else { alert('صنف غير موجود!'); }
+    } else if (context === 'purchase') {
+      if (product) {
+        const ex = purchaseCart.find(i => i.product.id === product.id);
+        if (ex) setPurchaseCart(purchaseCart.map(i => i.product.id === product.id ? {...i, qty: i.qty+1} : i));
+        else setPurchaseCart([...purchaseCart, {product, qty: 1, cost: 0}]);
+      } else { alert('صنف غير موجود! أضفه أولاً من المخزون.'); }
+    }
+  }, [inventory, posCart, purchaseCart]);
 
   // --- حسابات الربط المالي للموظفين ---
   const getEmployeeBalance = useCallback((empId: string) => {
@@ -611,7 +675,12 @@ const DynamoGymApp = () => {
           {view === 'pos' && (
             <div className="row g-3">
                <div className="col-12">
-                  <h5 className="fw-800 text-dark mb-3">نقطة البيع (POS)</h5>
+                  <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <h5 className="fw-800 text-dark mb-0">نقطة البيع (POS)</h5>
+                    <button type="button" className="btn btn-dark rounded-pill px-4 shadow" onClick={()=>startBarcodeScanner('pos')}>
+                      <i className="fas fa-barcode me-2"></i> مسح الباركود
+                    </button>
+                  </div>
                   <div className="card p-3 shadow-sm border-0 bg-white mb-3">
                     <input className="form-control rounded-pill shadow-sm mb-3 px-4 border extra-small" placeholder="بحث عن صنف..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
                     <div className="row g-2 overflow-auto" style={{maxHeight: '30vh'}}>
@@ -705,20 +774,31 @@ const DynamoGymApp = () => {
             <div className="row g-3">
               <div className="col-lg-4">
                 <div className="card p-3 shadow-sm rounded-4 border-0 bg-white border-top border-4 border-info">
-                  <h6 className="fw-800 text-info mb-3">{productForm.id ? 'تعديل صنف':'إضافة صنف جديد'}</h6>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h6 className="fw-800 text-info mb-0">{productForm.id ? 'تعديل صنف':'إضافة صنف جديد'}</h6>
+                    <button type="button" className="btn btn-dark btn-sm rounded-pill px-3 shadow" onClick={()=>startBarcodeScanner('inventory')}>
+                      <i className="fas fa-barcode me-1"></i> مسح الباركود
+                    </button>
+                  </div>
                   <form onSubmit={async(e)=>{
                     e.preventDefault(); if(!requireSupabase()) return; setLoading(true); try{ 
-                      const payload = { name: productForm.name, sale_price: Number(productForm.price) };
+                      const payload = { name: productForm.name, sale_price: Number(productForm.price), barcode: productForm.barcode || null };
                       if(productForm.id) await supabase!.from('products').update(payload).eq('id', productForm.id);
                       else await supabase!.from('products').insert([{...payload, quantity: 0}]); 
-                      setProductForm({id:'', name:'', price:'0'}); await fetchData(); alert('تم الحفظ ✅');
+                      setProductForm({id:'', name:'', price:'0', barcode:''}); await fetchData(); alert('تم الحفظ ✅');
                     }catch(err:any){alert(err.message);}finally{setLoading(false);}
                   }} className="row g-2">
+                    <div className="col-12">
+                      <div className="input-group">
+                        <input className="form-control rounded-start-pill shadow-sm" placeholder="الباركود (اختياري)" value={productForm.barcode} onChange={e=>setProductForm({...productForm, barcode:e.target.value})} />
+                        <span className="input-group-text bg-light"><i className="fas fa-barcode"></i></span>
+                      </div>
+                    </div>
                     <input className="form-control rounded-pill shadow-sm" onFocus={handleAutoSelect} placeholder="اسم الصنف" value={productForm.name} onChange={e=>setProductForm({...productForm, name:e.target.value})} required />
                     <div className="small text-muted mb-1 ms-2">سعر البيع</div>
                     <input type="number" step="0.01" className="form-control rounded-pill shadow-sm text-center" onFocus={handleAutoSelect} placeholder="سعر البيع" value={productForm.price} onChange={e=>setProductForm({...productForm, price:e.target.value})} required />
                     <button className="btn btn-info w-100 rounded-pill py-2 fw-bold text-white mt-2 shadow">حفظ ✅</button>
-                    {productForm.id && <button type="button" className="btn btn-link text-muted extra-small" onClick={()=>setProductForm({id:'', name:'', price:'0'})}>إلغاء</button>}
+                    {productForm.id && <button type="button" className="btn btn-link text-muted extra-small" onClick={()=>setProductForm({id:'', name:'', price:'0', barcode:''})}>إلغاء</button>}
                   </form>
                 </div>
               </div>
@@ -727,14 +807,15 @@ const DynamoGymApp = () => {
                   <h6 className="fw-800 border-bottom pb-2">الأصناف (الكميات تدخل عبر المشتريات فقط)</h6>
                   <div className="table-responsive">
                     <table className="table table-hover extra-small align-middle text-end mb-0">
-                      <thead><tr className="table-light"><th>الاسم</th><th>سعر البيع</th><th>الكمية</th><th>إجراء</th></tr></thead>
+                      <thead><tr className="table-light"><th>الباركود</th><th>الاسم</th><th>سعر البيع</th><th>الكمية</th><th>إجراء</th></tr></thead>
                       <tbody>{inventory.map(p=>(
                         <tr key={p.id}>
+                          <td className="text-muted small">{p.barcode || '-'}</td>
                           <td className="fw-bold">{p.name}</td>
                           <td className="fw-bold text-success">{formatNum(p.sale_price)} ₪</td>
                           <td className={`fw-bold ${p.quantity <= 0 ? 'text-danger' : 'text-primary'}`}>{p.quantity}</td>
                           <td><div className="d-flex gap-1">
-                            <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={()=>setProductForm({id:p.id, name:p.name, price:String(p.sale_price)})}><i className="fas fa-edit"></i></button>
+                            <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={()=>setProductForm({id:p.id, name:p.name, price:String(p.sale_price), barcode: p.barcode || ''})}><i className="fas fa-edit"></i></button>
                             <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{
                             if(!requireSupabase()) return; if(confirm('حذف الصنف؟')){ await supabase!.from('products').delete().eq('id', p.id); await fetchData(); }
                           }}><i className="fas fa-trash"></i></button></div></td>
@@ -750,7 +831,12 @@ const DynamoGymApp = () => {
           {view === 'purchases' && (
             <div className="row g-3">
                <div className="col-12">
-                  <h5 className="fw-800 text-dark mb-3">إدارة المشتريات</h5>
+                  <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <h5 className="fw-800 text-dark mb-0">إدارة المشتريات</h5>
+                    <button type="button" className="btn btn-dark rounded-pill px-4 shadow" onClick={()=>startBarcodeScanner('purchase')}>
+                      <i className="fas fa-barcode me-2"></i> مسح الباركود
+                    </button>
+                  </div>
                   <div className="card p-3 shadow-sm bg-white mb-3 shadow-lg">
                     <h6 className="fw-800 mb-2 small text-muted">اختر الأصناف</h6>
                     <div className="row g-2 overflow-auto mb-3" style={{maxHeight: '30vh'}}>
@@ -1520,6 +1606,26 @@ const DynamoGymApp = () => {
                  }}>تعديل</button>
                  <a href={getWhatsAppLink(memberDetails.phone)} className="btn btn-outline-success rounded-circle p-3 shadow-sm transition-all hover-scale"><i className="fab fa-whatsapp"></i></a>
                </div>
+            </div>
+          </div>
+        )}
+
+        {showBarcodeScanner && (
+          <div className="modal-custom" onClick={()=>stopBarcodeScanner()}>
+            <div className="card p-4 shadow-2xl bg-dark text-white rounded-4 border-0" style={{maxWidth: '400px', width: '95%'}} onClick={e=>e.stopPropagation()}>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h5 className="fw-800 mb-0"><i className="fas fa-barcode me-2"></i>ماسح الباركود</h5>
+                <button className="btn btn-outline-light btn-sm rounded-pill" onClick={stopBarcodeScanner}><i className="fas fa-times"></i></button>
+              </div>
+              <p className="text-muted small mb-2">وجّه الكاميرا نحو الباركود</p>
+              <div id="barcode-scanner-container" style={{width: '100%', minHeight: '250px', borderRadius: '12px', overflow: 'hidden', background: '#000'}}></div>
+              <div className="mt-3 text-center">
+                <small className="text-muted">
+                  {showBarcodeScanner === 'inventory' && 'سيتم تعبئة بيانات الصنف تلقائياً'}
+                  {showBarcodeScanner === 'pos' && 'سيتم إضافة الصنف للسلة تلقائياً'}
+                  {showBarcodeScanner === 'purchase' && 'سيتم إضافة الصنف للفاتورة تلقائياً'}
+                </small>
+              </div>
             </div>
           </div>
         )}
