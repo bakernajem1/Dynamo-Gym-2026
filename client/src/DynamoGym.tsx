@@ -254,22 +254,23 @@ const DynamoGymApp = () => {
 
   const handleBarcodeScanned = useCallback(async (barcode: string, context: 'inventory'|'pos'|'purchase') => {
     const cleanBarcode = barcode.trim();
+    let product: Product | undefined;
     
-    // البحث في الـ state أولاً
-    let product = inventory.find(p => p.barcode && p.barcode.trim() === cleanBarcode);
-    
-    // إذا لم يوجد وكان Supabase متصل، نبحث مباشرة في قاعدة البيانات
-    if (!product && supabase && (context === 'pos' || context === 'purchase')) {
-      const { data } = await supabase.from('products').select('*').eq('barcode', cleanBarcode).single();
-      if (data) {
-        product = data as Product;
-        // تحديث الـ inventory state
-        setInventory(prev => {
-          const exists = prev.find(p => p.id === data.id);
-          if (exists) return prev.map(p => p.id === data.id ? data : p);
-          return [...prev, data];
-        });
+    // البحث مباشرة في قاعدة البيانات أولاً (أكثر موثوقية)
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('products').select('*').eq('barcode', cleanBarcode);
+        if (!error && data && data.length > 0) {
+          product = data[0] as Product;
+        }
+      } catch (e) {
+        console.error('Barcode search error:', e);
       }
+    }
+    
+    // إذا لم يوجد في قاعدة البيانات، نبحث في الـ state
+    if (!product) {
+      product = inventory.find(p => p.barcode && p.barcode.trim() === cleanBarcode);
     }
     
     if (context === 'inventory') {
@@ -283,17 +284,19 @@ const DynamoGymApp = () => {
     } else if (context === 'pos') {
       if (product) {
         if (product.quantity <= 0) { alert(`⚠️ ${product.name} - الكمية صفر!`); return; }
-        const ex = posCart.find(i => i.product.id === product.id);
-        if (ex) setPosCart(posCart.map(i => i.product.id === product.id ? {...i, qty: i.qty+1} : i));
+        const ex = posCart.find(i => i.product.id === product!.id);
+        if (ex) setPosCart(posCart.map(i => i.product.id === product!.id ? {...i, qty: i.qty+1} : i));
         else setPosCart([...posCart, {product, qty: 1}]);
+        alert(`✅ تمت الإضافة: ${product.name}`);
       } else { 
         alert(`❌ الباركود: ${cleanBarcode}\nغير موجود!\n\nأضف الصنف من المخزون أولاً`); 
       }
     } else if (context === 'purchase') {
       if (product) {
-        const ex = purchaseCart.find(i => i.product.id === product.id);
-        if (ex) setPurchaseCart(purchaseCart.map(i => i.product.id === product.id ? {...i, qty: i.qty+1} : i));
+        const ex = purchaseCart.find(i => i.product.id === product!.id);
+        if (ex) setPurchaseCart(purchaseCart.map(i => i.product.id === product!.id ? {...i, qty: i.qty+1} : i));
         else setPurchaseCart([...purchaseCart, {product, qty: 1, cost: 0}]);
+        alert(`✅ تمت الإضافة: ${product.name}`);
       } else { 
         alert(`❌ الباركود: ${cleanBarcode}\nغير موجود!\n\nأضف الصنف من المخزون أولاً`); 
       }
