@@ -155,6 +155,7 @@ const DynamoGymApp = () => {
   const [memberDetails, setMemberDetails] = useState<Member | null>(null);
   const [repayingPerson, setRepayingPerson] = useState<any | null>(null);
   const [statementPerson, setStatementPerson] = useState<any | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<TransactionRecord | null>(null);
 
   const navigateTo = (v: string) => { 
     setView(v); 
@@ -231,9 +232,9 @@ const DynamoGymApp = () => {
         await scanner.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 250, height: 100 } },
-          (decodedText) => {
-            handleBarcodeScanned(decodedText, context);
+          async (decodedText) => {
             stopBarcodeScanner();
+            await handleBarcodeScanned(decodedText, context);
           },
           () => {}
         );
@@ -442,7 +443,15 @@ const DynamoGymApp = () => {
 
       await supabase!.from('transactions').insert({ 
         type: 'SALE', amount: paid, label: `مبيعات: ${person?.name || (person as any)?.full_name || 'نقدي'}`, 
-        metadata: { person_id: posForm.personId, debt_added: debt, employee_id: emp?.id || null } 
+        discount: Number(posForm.discount),
+        metadata: { 
+          person_id: posForm.personId, 
+          debt_added: debt, 
+          employee_id: emp?.id || null,
+          items: posCart.map(i => ({ name: i.product.name, qty: i.qty, price: i.product.sale_price })),
+          subtotal: subtotal,
+          total: net
+        } 
       });
 
       if (debt > 0 && person) {
@@ -474,7 +483,14 @@ const DynamoGymApp = () => {
 
       const transData = { 
         type: 'PURCHASE', amount: paid, label: `مشتريات: ${supplier?.name || 'نقدي'}`, 
-        metadata: { supplier_id: purchaseForm.supplierId, debt_added: debt } 
+        discount: Number(purchaseForm.discount),
+        metadata: { 
+          supplier_id: purchaseForm.supplierId, 
+          debt_added: debt,
+          items: purchaseCart.map(i => ({ name: i.product.name, qty: i.qty, cost: i.cost })),
+          subtotal: subtotal,
+          total: net
+        } 
       };
 
       if (purchaseForm.editId) {
@@ -820,7 +836,7 @@ const DynamoGymApp = () => {
                               <td className="fw-bold">{t.label}</td>
                               <td className="fw-bold text-success">{formatNum(t.amount)} ₪</td>
                               <td><div className="d-flex gap-1">
-                                <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm">تعديل</button>
+                                <button className="btn btn-xs btn-outline-info rounded-pill shadow-sm" onClick={()=>setSelectedInvoice(t)}><i className="fas fa-eye"></i></button>
                                 <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{ if(!requireSupabase()) return; if(confirm('حذف الفاتورة؟')){ await supabase!.from('transactions').delete().eq('id', t.id); await fetchData(); } }}><i className="fas fa-trash"></i></button>
                               </div></td>
                             </tr>
@@ -1000,7 +1016,7 @@ const DynamoGymApp = () => {
                             <td className="fw-bold">{t.label}</td>
                             <td className="fw-bold text-primary">{formatNum(t.amount)} ₪</td>
                             <td><div className="d-flex gap-1">
-                              <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm">تعديل</button>
+                              <button className="btn btn-xs btn-outline-info rounded-pill shadow-sm" onClick={()=>setSelectedInvoice(t)}><i className="fas fa-eye"></i></button>
                               <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{ if(!requireSupabase()) return; if(confirm('حذف؟')){ await supabase!.from('transactions').delete().eq('id', t.id); await fetchData(); } }}><i className="fas fa-trash"></i></button>
                             </div></td>
                           </tr>
@@ -1719,6 +1735,90 @@ const DynamoGymApp = () => {
                   {showBarcodeScanner === 'pos' && 'سيتم إضافة الصنف للسلة تلقائياً'}
                   {showBarcodeScanner === 'purchase' && 'سيتم إضافة الصنف للفاتورة تلقائياً'}
                 </small>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedInvoice && (
+          <div className="modal-custom" onClick={()=>setSelectedInvoice(null)}>
+            <div className="card p-4 shadow-2xl bg-white rounded-4 border-0 border-top border-4 border-info shadow-lg" style={{maxWidth: '450px', width: '95%', maxHeight: '90vh', overflow: 'auto'}} onClick={e=>e.stopPropagation()}>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h5 className="fw-800 text-info mb-0">
+                  <i className={`fas fa-${selectedInvoice.type === 'SALE' ? 'shopping-cart' : 'truck'} me-2`}></i>
+                  {selectedInvoice.type === 'SALE' ? 'فاتورة بيع' : 'فاتورة مشتريات'}
+                </h5>
+                <button className="btn btn-outline-dark btn-sm rounded-pill" onClick={()=>setSelectedInvoice(null)}><i className="fas fa-times"></i></button>
+              </div>
+              
+              <div className="mb-3 p-3 bg-light rounded-3">
+                <div className="d-flex justify-content-between small mb-1">
+                  <span className="text-muted">التاريخ:</span>
+                  <span className="fw-bold">{new Date(selectedInvoice.created_at).toLocaleString('ar-EG')}</span>
+                </div>
+                <div className="d-flex justify-content-between small">
+                  <span className="text-muted">{selectedInvoice.type === 'SALE' ? 'العميل:' : 'المورد:'}</span>
+                  <span className="fw-bold">{selectedInvoice.label.replace('مبيعات: ', '').replace('مشتريات: ', '')}</span>
+                </div>
+              </div>
+              
+              {selectedInvoice.metadata?.items && (
+                <div className="table-responsive mb-3">
+                  <table className="table table-sm small text-end align-middle mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>الصنف</th>
+                        <th>الكمية</th>
+                        <th>{selectedInvoice.type === 'SALE' ? 'السعر' : 'التكلفة'}</th>
+                        <th>الإجمالي</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedInvoice.metadata.items as any[]).map((item: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="fw-bold">{item.name}</td>
+                          <td>{item.qty}</td>
+                          <td>{formatNum(item.price || item.cost)} ₪</td>
+                          <td className="fw-bold text-dark">{formatNum((item.price || item.cost) * item.qty)} ₪</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
+              {!selectedInvoice.metadata?.items && (
+                <div className="alert alert-warning small py-2">
+                  <i className="fas fa-info-circle me-1"></i>
+                  لا تتوفر تفاصيل الأصناف لهذه الفاتورة (فاتورة قديمة)
+                </div>
+              )}
+              
+              <div className="border-top pt-3">
+                <div className="d-flex justify-content-between mb-1">
+                  <span className="text-muted">الإجمالي الفرعي:</span>
+                  <span className="fw-bold">{formatNum(selectedInvoice.metadata?.subtotal || selectedInvoice.amount)} ₪</span>
+                </div>
+                {(selectedInvoice.discount || 0) > 0 && (
+                  <div className="d-flex justify-content-between mb-1 text-danger">
+                    <span>الخصم:</span>
+                    <span className="fw-bold">- {formatNum(selectedInvoice.discount)} ₪</span>
+                  </div>
+                )}
+                <div className="d-flex justify-content-between mb-1">
+                  <span className="text-muted">المدفوع:</span>
+                  <span className="fw-bold text-success">{formatNum(selectedInvoice.amount)} ₪</span>
+                </div>
+                {(selectedInvoice.metadata?.debt_added || 0) > 0 && (
+                  <div className="d-flex justify-content-between text-danger">
+                    <span>الدين المضاف:</span>
+                    <span className="fw-bold">{formatNum(selectedInvoice.metadata.debt_added)} ₪</span>
+                  </div>
+                )}
+                <div className="d-flex justify-content-between mt-2 pt-2 border-top fs-5">
+                  <span className="fw-800">الصافي:</span>
+                  <span className="fw-800 text-primary">{formatNum(selectedInvoice.metadata?.total || selectedInvoice.amount)} ₪</span>
+                </div>
               </div>
             </div>
           </div>
