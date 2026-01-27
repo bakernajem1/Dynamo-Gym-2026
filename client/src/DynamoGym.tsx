@@ -235,28 +235,39 @@ const DynamoGymApp = () => {
   }, []);
 
   const handleBarcodeScanned = useCallback((barcode: string, context: 'inventory'|'pos'|'purchase') => {
-    const product = inventory.find(p => p.barcode === barcode);
+    // البحث بالباركود - تجاهل المسافات والأحرف الزائدة
+    const cleanBarcode = barcode.trim();
+    const product = inventory.find(p => p.barcode && p.barcode.trim() === cleanBarcode);
+    
+    console.log('Barcode scanned:', cleanBarcode, 'Context:', context, 'Found product:', product?.name || 'NONE');
+    console.log('Products with barcodes:', inventory.filter(p => p.barcode).map(p => ({name: p.name, barcode: p.barcode})));
+    
     if (context === 'inventory') {
       if (product) {
         setProductForm({ id: product.id, name: product.name, price: String(product.sale_price), barcode: product.barcode || '' });
-        alert('تم العثور على الصنف! يمكنك تعديله الآن.');
+        alert(`✅ تم العثور على: ${product.name}`);
       } else {
-        setProductForm({ id: '', name: '', price: '0', barcode });
-        alert('باركود جديد! أدخل بيانات الصنف.');
+        setProductForm({ id: '', name: '', price: '0', barcode: cleanBarcode });
+        alert(`📦 باركود جديد: ${cleanBarcode}\nأدخل اسم الصنف والسعر ثم اضغط حفظ`);
       }
     } else if (context === 'pos') {
       if (product) {
-        if (product.quantity <= 0) { alert('الكمية صفر!'); return; }
+        if (product.quantity <= 0) { alert(`⚠️ ${product.name} - الكمية صفر!`); return; }
         const ex = posCart.find(i => i.product.id === product.id);
         if (ex) setPosCart(posCart.map(i => i.product.id === product.id ? {...i, qty: i.qty+1} : i));
         else setPosCart([...posCart, {product, qty: 1}]);
-      } else { alert('صنف غير موجود!'); }
+        // لا نحتاج alert عند الإضافة للسلة - الصنف يظهر في السلة
+      } else { 
+        alert(`❌ الباركود: ${cleanBarcode}\nغير موجود في المخزون!\n\nاذهب لصفحة المخزون أولاً وأضف الصنف مع هذا الباركود`); 
+      }
     } else if (context === 'purchase') {
       if (product) {
         const ex = purchaseCart.find(i => i.product.id === product.id);
         if (ex) setPurchaseCart(purchaseCart.map(i => i.product.id === product.id ? {...i, qty: i.qty+1} : i));
         else setPurchaseCart([...purchaseCart, {product, qty: 1, cost: 0}]);
-      } else { alert('صنف غير موجود! أضفه أولاً من المخزون.'); }
+      } else { 
+        alert(`❌ الباركود: ${cleanBarcode}\nغير موجود في المخزون!\n\nاذهب لصفحة المخزون أولاً وأضف الصنف مع هذا الباركود`); 
+      }
     }
   }, [inventory, posCart, purchaseCart]);
 
