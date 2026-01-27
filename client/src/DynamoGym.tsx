@@ -698,9 +698,34 @@ const DynamoGymApp = () => {
                <div className="col-12">
                   <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                     <h5 className="fw-800 text-dark mb-0">نقطة البيع (POS)</h5>
-                    <button type="button" className="btn btn-dark rounded-pill px-4 shadow" onClick={()=>startBarcodeScanner('pos')}>
-                      <i className="fas fa-barcode me-2"></i> مسح الباركود
-                    </button>
+                    <div className="d-flex gap-2 align-items-center flex-wrap">
+                      <div className="input-group" style={{maxWidth: '200px'}}>
+                        <input 
+                          type="text" 
+                          className="form-control form-control-sm rounded-start-pill" 
+                          placeholder="أدخل الباركود..."
+                          onKeyDown={(e) => {
+                            if(e.key === 'Enter') {
+                              const input = e.target as HTMLInputElement;
+                              if(input.value.trim()) {
+                                handleBarcodeScanned(input.value.trim(), 'pos');
+                                input.value = '';
+                              }
+                            }
+                          }}
+                        />
+                        <span className="input-group-text bg-dark text-white rounded-end-pill"><i className="fas fa-barcode"></i></span>
+                      </div>
+                      <button type="button" className="btn btn-dark rounded-pill px-3 shadow btn-sm" onClick={()=>startBarcodeScanner('pos')}>
+                        <i className="fas fa-camera me-1"></i> كاميرا
+                      </button>
+                    </div>
+                  </div>
+                  {/* Debug: عدد الأصناف بباركود */}
+                  <div className="alert alert-info py-1 px-3 small mb-2">
+                    <i className="fas fa-info-circle me-1"></i>
+                    أصناف بباركود: <strong>{inventory.filter(p => p.barcode).length}</strong> من {inventory.length}
+                    {inventory.filter(p => p.barcode).length === 0 && <span className="text-danger ms-2">⚠️ لا يوجد أي أصناف بباركود!</span>}
                   </div>
                   <div className="card p-3 shadow-sm border-0 bg-white mb-3">
                     <input className="form-control rounded-pill shadow-sm mb-3 px-4 border extra-small" placeholder="بحث عن صنف..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
@@ -867,9 +892,34 @@ const DynamoGymApp = () => {
                <div className="col-12">
                   <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                     <h5 className="fw-800 text-dark mb-0">إدارة المشتريات</h5>
-                    <button type="button" className="btn btn-dark rounded-pill px-4 shadow" onClick={()=>startBarcodeScanner('purchase')}>
-                      <i className="fas fa-barcode me-2"></i> مسح الباركود
-                    </button>
+                    <div className="d-flex gap-2 align-items-center flex-wrap">
+                      <div className="input-group" style={{maxWidth: '200px'}}>
+                        <input 
+                          type="text" 
+                          className="form-control form-control-sm rounded-start-pill" 
+                          placeholder="أدخل الباركود..."
+                          onKeyDown={(e) => {
+                            if(e.key === 'Enter') {
+                              const input = e.target as HTMLInputElement;
+                              if(input.value.trim()) {
+                                handleBarcodeScanned(input.value.trim(), 'purchase');
+                                input.value = '';
+                              }
+                            }
+                          }}
+                        />
+                        <span className="input-group-text bg-dark text-white rounded-end-pill"><i className="fas fa-barcode"></i></span>
+                      </div>
+                      <button type="button" className="btn btn-dark rounded-pill px-3 shadow btn-sm" onClick={()=>startBarcodeScanner('purchase')}>
+                        <i className="fas fa-camera me-1"></i> كاميرا
+                      </button>
+                    </div>
+                  </div>
+                  {/* Debug: عدد الأصناف بباركود */}
+                  <div className="alert alert-info py-1 px-3 small mb-2">
+                    <i className="fas fa-info-circle me-1"></i>
+                    أصناف بباركود: <strong>{inventory.filter(p => p.barcode).length}</strong> من {inventory.length}
+                    {inventory.filter(p => p.barcode).length === 0 && <span className="text-danger ms-2">⚠️ لا يوجد أي أصناف بباركود!</span>}
                   </div>
                   <div className="card p-3 shadow-sm bg-white mb-3 shadow-lg">
                     <h6 className="fw-800 mb-2 small text-muted">اختر الأصناف</h6>
