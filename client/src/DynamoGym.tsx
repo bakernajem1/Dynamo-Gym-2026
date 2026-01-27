@@ -232,8 +232,8 @@ const DynamoGymApp = () => {
       expenses: exp,
       personalWithdrawals,
       totalIncome: mRev + pRev,
-      totalOutcome: sal + pur + exp + personalWithdrawals,
-      net: (mRev + pRev) - (sal + pur + exp + personalWithdrawals),
+      totalOutcome: sal + pur + exp,
+      net: (mRev + pRev) - (sal + pur + exp),
       debtsOnOthers: dOnO
     };
   }, [transactions, members, customers]);
