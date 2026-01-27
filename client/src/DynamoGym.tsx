@@ -109,7 +109,7 @@ interface Employee {
 }
 
 interface TransactionRecord {
-  id: string; type: 'MEMBERSHIP' | 'PURCHASE' | 'SALE' | 'EXPENSE' | 'DEBT_PAYMENT' | 'SUPPLIER_PAYMENT' | 'ADVANCE' | 'SALARY_PAYMENT';
+  id: string; type: 'MEMBERSHIP' | 'PURCHASE' | 'SALE' | 'EXPENSE' | 'DEBT_PAYMENT' | 'SUPPLIER_PAYMENT' | 'ADVANCE' | 'SALARY_PAYMENT' | 'PERSONAL_WITHDRAWAL';
   amount: number; discount: number; label: string; metadata: any; created_at: string;
 }
 
@@ -221,6 +221,7 @@ const DynamoGymApp = () => {
     const sal = tList.filter(t => ['SALARY_PAYMENT', 'ADVANCE'].includes(t.type)).reduce((s,t) => s + t.amount, 0);
     const pur = tList.filter(t => t.type === 'PURCHASE').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
     const exp = tList.filter(t => t.type === 'EXPENSE').reduce((s,t) => s + t.amount, 0);
+    const personalWithdrawals = tList.filter(t => t.type === 'PERSONAL_WITHDRAWAL').reduce((s,t) => s + t.amount, 0);
     const dOnO = members.reduce((s, m) => s + (m.total_debt || 0), 0) + customers.reduce((s, c) => s + (c.total_debt || 0), 0);
     
     return {
@@ -229,9 +230,10 @@ const DynamoGymApp = () => {
       purchases: pur,
       salaries: sal,
       expenses: exp,
+      personalWithdrawals,
       totalIncome: mRev + pRev,
-      totalOutcome: sal + pur + exp,
-      net: (mRev + pRev) - (sal + pur + exp),
+      totalOutcome: sal + pur + exp + personalWithdrawals,
+      net: (mRev + pRev) - (sal + pur + exp + personalWithdrawals),
       debtsOnOthers: dOnO
     };
   }, [transactions, members, customers]);
@@ -240,8 +242,8 @@ const DynamoGymApp = () => {
     return transactions.reduce((acc, t) => {
       // إضافة: مبيعات، اشتراكات، سداد ديون الأعضاء/العملاء
       if(['SALE', 'MEMBERSHIP', 'DEBT_PAYMENT'].includes(t.type)) return acc + t.amount;
-      // خصم: مشتريات، مصروفات، رواتب، سلف، سداد ديون الموردين
-      if(['PURCHASE', 'EXPENSE', 'SALARY_PAYMENT', 'ADVANCE', 'SUPPLIER_PAYMENT'].includes(t.type)) return acc - t.amount;
+      // خصم: مشتريات، مصروفات، رواتب، سلف، سداد ديون الموردين، مسحوبات شخصية
+      if(['PURCHASE', 'EXPENSE', 'SALARY_PAYMENT', 'ADVANCE', 'SUPPLIER_PAYMENT', 'PERSONAL_WITHDRAWAL'].includes(t.type)) return acc - t.amount;
       return acc;
     }, 0);
   }, [transactions]);
@@ -981,6 +983,39 @@ const DynamoGymApp = () => {
                     <h3 className="fw-800 text-danger mb-0">{formatNum(transactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0))} ₪</h3>
                   </div>
                 </div>
+                
+                {/* المسحوبات الشخصية */}
+                <div className="card p-3 shadow-sm rounded-4 border-0 bg-white border-top border-4 border-dark mt-3 shadow-lg">
+                  <h6 className="fw-800 text-dark mb-3"><i className="fas fa-hand-holding-usd me-2"></i>مسحوبات شخصية</h6>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!requireSupabase()) return;
+                    const form = e.target as any;
+                    const amt = Number(form.withdrawalAmount.value);
+                    const note = form.withdrawalNote.value || 'مسحوبات شخصية';
+                    if (amt <= 0) return alert('يرجى إدخال مبلغ صحيح!');
+                    setLoading(true);
+                    try {
+                      await supabase!.from('transactions').insert([{
+                        type: 'PERSONAL_WITHDRAWAL',
+                        amount: amt,
+                        label: note,
+                        metadata: {}
+                      }]);
+                      form.reset();
+                      await fetchData();
+                      alert('تم تسجيل المسحوبات ✅');
+                    } catch (err: any) { alert(err.message); } finally { setLoading(false); }
+                  }} className="row g-2">
+                    <input name="withdrawalNote" className="form-control rounded-pill shadow-sm" placeholder="ملاحظة (اختياري)" />
+                    <input name="withdrawalAmount" type="number" step="0.01" className="form-control rounded-pill shadow-sm text-center fw-bold border-dark" onFocus={handleAutoSelect} placeholder="المبلغ (₪)" required />
+                    <button className="btn btn-dark w-100 rounded-pill py-2 fw-bold shadow mt-2">سحب من الصندوق 💰</button>
+                  </form>
+                  <div className="mt-3 p-2 bg-dark bg-opacity-10 rounded-3 text-center">
+                    <small className="text-muted fw-bold">إجمالي المسحوبات: </small>
+                    <span className="fw-800 text-dark">{formatNum(transactions.filter(t => t.type === 'PERSONAL_WITHDRAWAL').reduce((s, t) => s + t.amount, 0))} ₪</span>
+                  </div>
+                </div>
               </div>
               <div className="col-lg-8">
                 <div className="card p-3 shadow-sm border-0 bg-white h-100 shadow-lg">
@@ -1043,9 +1078,10 @@ const DynamoGymApp = () => {
                     <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-primary text-white shadow-lg"><small className="fw-bold opacity-75">إيرادات الاشتراكات (+دين)</small><h3 className="fw-800">{formatNum(reportData.membershipRev)} ₪</h3></div></div>
                     <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-info text-white shadow-lg"><small className="fw-bold opacity-75">إيرادات المبيعات (+دين)</small><h3 className="fw-800">{formatNum(reportData.posRev)} ₪</h3></div></div>
                     <div className="col-md-4 col-12"><div className="card p-3 border-0 bg-success text-white shadow-lg"><small className="fw-bold opacity-75">الإيرادات الكلية</small><h3 className="fw-800">{formatNum(reportData.totalIncome)} ₪</h3></div></div>
-                    <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-white text-danger shadow-sm border-top border-4 border-danger h-100"><small className="fw-bold text-muted">الرواتب والمصروفات</small><h3>{formatNum(reportData.salaries + reportData.expenses)} ₪</h3></div></div>
-                    <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-white text-warning shadow-sm border-top border-4 border-warning h-100"><small className="fw-bold text-muted">المشتريات</small><h3>{formatNum(reportData.purchases)} ₪</h3></div></div>
-                    <div className="col-md-4 col-12"><div className="card p-4 border-0 bg-danger bg-opacity-10 rounded-4 shadow-sm d-flex flex-column align-items-center"><h6 className="fw-800 text-danger mb-1">الديون الكلية للغير لنا</h6><h2 className="fw-800 text-danger mb-0 fs-1">{formatNum(reportData.debtsOnOthers)} ₪</h2></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-danger shadow-sm border-top border-4 border-danger h-100"><small className="fw-bold text-muted">الرواتب والمصروفات</small><h3>{formatNum(reportData.salaries + reportData.expenses)} ₪</h3></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-warning shadow-sm border-top border-4 border-warning h-100"><small className="fw-bold text-muted">المشتريات</small><h3>{formatNum(reportData.purchases)} ₪</h3></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-dark shadow-sm border-top border-4 border-dark h-100"><small className="fw-bold text-muted">مسحوبات شخصية</small><h3>{formatNum(reportData.personalWithdrawals)} ₪</h3></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-4 border-0 bg-danger bg-opacity-10 rounded-4 shadow-sm d-flex flex-column align-items-center"><h6 className="fw-800 text-danger mb-1">الديون لنا</h6><h2 className="fw-800 text-danger mb-0 fs-2">{formatNum(reportData.debtsOnOthers)} ₪</h2></div></div>
                     <div className="col-md-12 mt-4"><div className={`card p-5 bg-dark text-white rounded-5 shadow-2xl border-0 border-top border-5 ${reportData.net >= 0 ? 'border-success' : 'border-danger'}`}><h5 className="opacity-75 fw-bold">الربح الصافي</h5><h1 className={`fw-800 ${reportData.net >= 0 ? 'text-success' : 'text-danger'}`} style={{fontSize: '4.5rem'}}>{formatNum(reportData.net)} ₪</h1></div></div>
                  </>
                )}
