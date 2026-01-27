@@ -1062,6 +1062,50 @@ const DynamoGymApp = () => {
                     <span className="fw-800 text-dark">{formatNum(transactions.filter(t => t.type === 'PERSONAL_WITHDRAWAL').reduce((s, t) => s + t.amount, 0))} ₪</span>
                   </div>
                 </div>
+                
+                {/* كشف المسحوبات الشهري */}
+                <div className="card p-3 shadow-sm rounded-4 border-0 bg-white border-top border-4 border-secondary mt-3 shadow-lg">
+                  <div className="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                    <h6 className="fw-800 text-secondary mb-0"><i className="fas fa-list-alt me-2"></i>كشف المسحوبات</h6>
+                    <div className="d-flex gap-1 mt-2 mt-md-0">
+                      <select className="form-select form-select-sm rounded-pill shadow-sm" style={{ width: 90 }} value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}>{MONTHS_AR.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}</select>
+                      <select className="form-select form-select-sm rounded-pill shadow-sm" style={{ width: 80 }} value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>{YEARS.map(y => <option key={y} value={y}>{y}</option>)}</select>
+                    </div>
+                  </div>
+                  <div className="mb-2 p-2 bg-secondary bg-opacity-10 rounded-3 text-center">
+                    <small className="text-muted fw-bold">مسحوبات {MONTHS_AR[selectedMonth - 1]} {selectedYear}: </small>
+                    <span className="fw-800 text-dark">{formatNum(transactions.filter(t => t.type === 'PERSONAL_WITHDRAWAL' && new Date(t.created_at).getMonth() + 1 === selectedMonth && new Date(t.created_at).getFullYear() === selectedYear).reduce((s, t) => s + t.amount, 0))} ₪</span>
+                  </div>
+                  <div className="table-responsive" style={{maxHeight: '200px', overflowY: 'auto'}}>
+                    <table className="table table-sm table-hover extra-small align-middle text-end mb-0">
+                      <thead className="table-light sticky-top"><tr><th>التاريخ</th><th>الملاحظة</th><th>المبلغ</th><th></th></tr></thead>
+                      <tbody>
+                        {transactions.filter(t => t.type === 'PERSONAL_WITHDRAWAL' && new Date(t.created_at).getMonth() + 1 === selectedMonth && new Date(t.created_at).getFullYear() === selectedYear).map(t => (
+                          <tr key={t.id}>
+                            <td className="text-muted">{new Date(t.created_at).toLocaleDateString('ar-EG')}</td>
+                            <td className="fw-bold">{t.label}</td>
+                            <td className="fw-800 text-dark">{formatNum(t.amount)} ₪</td>
+                            <td>
+                              <button className="btn btn-xs btn-outline-danger rounded-pill" onClick={async () => {
+                                if (!requireSupabase()) return;
+                                if (confirm('هل تريد حذف هذه المسحوبات؟')) {
+                                  await supabase!.from('transactions').delete().eq('id', t.id);
+                                  await fetchData();
+                                }
+                              }}><i className="fas fa-trash"></i></button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {transactions.filter(t => t.type === 'PERSONAL_WITHDRAWAL' && new Date(t.created_at).getMonth() + 1 === selectedMonth && new Date(t.created_at).getFullYear() === selectedYear).length === 0 && (
+                      <div className="text-center text-muted py-3">
+                        <i className="fas fa-inbox mb-1"></i>
+                        <p className="mb-0 extra-small">لا توجد مسحوبات لهذا الشهر</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="col-lg-8">
                 <div className="card p-3 shadow-sm border-0 bg-white h-100 shadow-lg">
