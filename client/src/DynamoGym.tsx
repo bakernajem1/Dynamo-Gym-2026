@@ -238,12 +238,16 @@ const DynamoGymApp = () => {
     };
   }, [transactions, members, customers]);
 
+  // الصندوق اليومي - يعرض فقط معاملات اليوم الحالي
   const cashBalance = useMemo(() => {
-    return transactions.reduce((acc, t) => {
-      // إضافة: مبيعات، اشتراكات، سداد ديون الأعضاء/العملاء
+    const today = new Date().toISOString().split('T')[0];
+    const todayTransactions = transactions.filter(t => t.created_at.split('T')[0] === today);
+    
+    return todayTransactions.reduce((acc, t) => {
+      // إضافة: مبيعات مقبوضة، اشتراكات مقبوضة، ديون محصلة
       if(['SALE', 'MEMBERSHIP', 'DEBT_PAYMENT'].includes(t.type)) return acc + t.amount;
-      // خصم: مشتريات، مصروفات، رواتب، سلف، سداد ديون الموردين، مسحوبات شخصية
-      if(['PURCHASE', 'EXPENSE', 'SALARY_PAYMENT', 'ADVANCE', 'SUPPLIER_PAYMENT', 'PERSONAL_WITHDRAWAL'].includes(t.type)) return acc - t.amount;
+      // خصم: مشتريات، مصروفات، مسحوبات شخصية، رواتب، سلف، سداد موردين
+      if(['PURCHASE', 'EXPENSE', 'PERSONAL_WITHDRAWAL', 'SALARY_PAYMENT', 'ADVANCE', 'SUPPLIER_PAYMENT'].includes(t.type)) return acc - t.amount;
       return acc;
     }, 0);
   }, [transactions]);
@@ -431,7 +435,7 @@ const DynamoGymApp = () => {
         <header className="glass-header px-4 d-flex justify-content-between align-items-center bg-white shadow-sm border-bottom">
           <div className="d-flex align-items-center gap-2">
             <button className="btn d-lg-none p-0" onClick={(e)=>{ e.stopPropagation(); setSidebarOpen(true); }}><i className="fas fa-bars fs-4"></i></button>
-            <h5 className="mb-0 fw-800 text-dark">الصندوق: <span className={cashBalance >= 0 ? "text-success" : "text-danger"}>{formatNum(cashBalance)} ₪</span></h5>
+            <h5 className="mb-0 fw-800 text-dark">صندوق اليوم: <span className={cashBalance >= 0 ? "text-success" : "text-danger"}>{formatNum(cashBalance)} ₪</span></h5>
           </div>
           <div className="d-flex align-items-center gap-2">
             <div className="d-none d-lg-block fw-bold text-muted small">{new Date().toLocaleDateString('ar-EG')}</div>
