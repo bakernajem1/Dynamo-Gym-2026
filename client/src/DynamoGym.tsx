@@ -426,6 +426,7 @@ const DynamoGymApp = () => {
           <button className={`nav-link ${view==='employees'?'active':''}`} onClick={()=>navigateTo('employees')}><i className="fas fa-user-tie me-2"></i>الموظفين</button>
           <button className={`nav-link ${view==='expenses'?'active':''}`} onClick={()=>navigateTo('expenses')}><i className="fas fa-money-bill-wave me-2"></i>المصروفات</button>
           <button className={`nav-link ${view==='reports'?'active':''}`} onClick={()=>navigateTo('reports')}><i className="fas fa-chart-line me-2"></i>التقارير</button>
+          <button className={`nav-link ${view==='opening'?'active':''}`} onClick={()=>navigateTo('opening')}><i className="fas fa-balance-scale me-2"></i>أرصدة افتتاحية</button>
           <button className={`nav-link ${view==='settings'?'active':''}`} onClick={()=>navigateTo('settings')}><i className="fas fa-cog me-2"></i>الإعدادات</button>
           <button className="nav-link text-danger mt-4" onClick={handleLogout}><i className="fas fa-sign-out-alt me-2"></i>خروج</button>
         </nav>
@@ -1179,6 +1180,160 @@ const DynamoGymApp = () => {
                     <div className="col-md-12 mt-4"><div className={`card p-5 bg-dark text-white rounded-5 shadow-2xl border-0 border-top border-5 ${reportData.net >= 0 ? 'border-success' : 'border-danger'}`}><h5 className="opacity-75 fw-bold">الربح الصافي</h5><h1 className={`fw-800 ${reportData.net >= 0 ? 'text-success' : 'text-danger'}`} style={{fontSize: '4.5rem'}}>{formatNum(reportData.net)} ₪</h1></div></div>
                  </>
                )}
+            </div>
+          )}
+
+          {view === 'opening' && (
+            <div className="row g-3">
+              <div className="col-12">
+                <div className="card p-4 shadow-lg border-0 bg-white border-top border-4 border-info">
+                  <h5 className="fw-800 mb-4 text-info"><i className="fas fa-balance-scale me-2"></i>الأرصدة الافتتاحية</h5>
+                  <p className="text-muted small mb-4">استخدم هذه الصفحة لإدخال البيانات الموجودة قبل بدء استخدام النظام. هذه الأرصدة لا تؤثر على التقارير المالية.</p>
+                  
+                  <div className="row g-4">
+                    {/* ديون الأعضاء */}
+                    <div className="col-md-6">
+                      <div className="card p-3 border-0 bg-primary bg-opacity-10 rounded-4 h-100">
+                        <h6 className="fw-800 text-primary mb-3"><i className="fas fa-users me-2"></i>ديون الأعضاء (لنا)</h6>
+                        <div className="table-responsive" style={{maxHeight: '250px', overflowY: 'auto'}}>
+                          <table className="table table-sm extra-small text-end mb-0">
+                            <thead className="table-light sticky-top"><tr><th>العضو</th><th>الدين الحالي</th><th>تعديل</th></tr></thead>
+                            <tbody>
+                              {members.map(m => (
+                                <tr key={m.id}>
+                                  <td className="fw-bold">{m.name}</td>
+                                  <td className="text-danger fw-800">{formatNum(m.total_debt)} ₪</td>
+                                  <td>
+                                    <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '100px'}} 
+                                      defaultValue={m.total_debt} 
+                                      onBlur={async (e) => {
+                                        if (!requireSupabase()) return;
+                                        const newDebt = Number(e.target.value) || 0;
+                                        if (newDebt !== m.total_debt) {
+                                          await supabase!.from('members').update({ total_debt: newDebt }).eq('id', m.id);
+                                          await fetchData();
+                                        }
+                                      }} 
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {members.length === 0 && <p className="text-muted text-center py-3 mb-0">لا يوجد أعضاء</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ديون العملاء */}
+                    <div className="col-md-6">
+                      <div className="card p-3 border-0 bg-success bg-opacity-10 rounded-4 h-100">
+                        <h6 className="fw-800 text-success mb-3"><i className="fas fa-hand-holding-usd me-2"></i>ديون العملاء (لنا)</h6>
+                        <div className="table-responsive" style={{maxHeight: '250px', overflowY: 'auto'}}>
+                          <table className="table table-sm extra-small text-end mb-0">
+                            <thead className="table-light sticky-top"><tr><th>العميل</th><th>الدين الحالي</th><th>تعديل</th></tr></thead>
+                            <tbody>
+                              {customers.map(c => (
+                                <tr key={c.id}>
+                                  <td className="fw-bold">{c.name}</td>
+                                  <td className="text-danger fw-800">{formatNum(c.total_debt)} ₪</td>
+                                  <td>
+                                    <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '100px'}} 
+                                      defaultValue={c.total_debt} 
+                                      onBlur={async (e) => {
+                                        if (!requireSupabase()) return;
+                                        const newDebt = Number(e.target.value) || 0;
+                                        if (newDebt !== c.total_debt) {
+                                          await supabase!.from('customers').update({ total_debt: newDebt }).eq('id', c.id);
+                                          await fetchData();
+                                        }
+                                      }} 
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {customers.length === 0 && <p className="text-muted text-center py-3 mb-0">لا يوجد عملاء</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ديون الموردين */}
+                    <div className="col-md-6">
+                      <div className="card p-3 border-0 bg-danger bg-opacity-10 rounded-4 h-100">
+                        <h6 className="fw-800 text-danger mb-3"><i className="fas fa-truck me-2"></i>ديون الموردين (علينا)</h6>
+                        <div className="table-responsive" style={{maxHeight: '250px', overflowY: 'auto'}}>
+                          <table className="table table-sm extra-small text-end mb-0">
+                            <thead className="table-light sticky-top"><tr><th>المورد</th><th>الدين الحالي</th><th>تعديل</th></tr></thead>
+                            <tbody>
+                              {suppliers.map(s => (
+                                <tr key={s.id}>
+                                  <td className="fw-bold">{s.name}</td>
+                                  <td className="text-danger fw-800">{formatNum(s.total_debt)} ₪</td>
+                                  <td>
+                                    <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '100px'}} 
+                                      defaultValue={s.total_debt} 
+                                      onBlur={async (e) => {
+                                        if (!requireSupabase()) return;
+                                        const newDebt = Number(e.target.value) || 0;
+                                        if (newDebt !== s.total_debt) {
+                                          await supabase!.from('suppliers').update({ total_debt: newDebt }).eq('id', s.id);
+                                          await fetchData();
+                                        }
+                                      }} 
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {suppliers.length === 0 && <p className="text-muted text-center py-3 mb-0">لا يوجد موردين</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* المخزون */}
+                    <div className="col-md-6">
+                      <div className="card p-3 border-0 bg-warning bg-opacity-10 rounded-4 h-100">
+                        <h6 className="fw-800 text-warning mb-3"><i className="fas fa-boxes me-2"></i>مخزون المنتجات</h6>
+                        <div className="table-responsive" style={{maxHeight: '250px', overflowY: 'auto'}}>
+                          <table className="table table-sm extra-small text-end mb-0">
+                            <thead className="table-light sticky-top"><tr><th>المنتج</th><th>الكمية</th><th>تعديل</th></tr></thead>
+                            <tbody>
+                              {products.map(p => (
+                                <tr key={p.id}>
+                                  <td className="fw-bold">{p.name}</td>
+                                  <td className="fw-800">{p.stock}</td>
+                                  <td>
+                                    <input type="number" className="form-control form-control-sm rounded-pill text-center" style={{width: '80px'}} 
+                                      defaultValue={p.stock} 
+                                      onBlur={async (e) => {
+                                        if (!requireSupabase()) return;
+                                        const newStock = Number(e.target.value) || 0;
+                                        if (newStock !== p.stock) {
+                                          await supabase!.from('products').update({ stock: newStock }).eq('id', p.id);
+                                          await fetchData();
+                                        }
+                                      }} 
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {products.length === 0 && <p className="text-muted text-center py-3 mb-0">لا يوجد منتجات</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="alert alert-info mt-4 mb-0 rounded-4">
+                    <i className="fas fa-info-circle me-2"></i>
+                    <strong>ملاحظة:</strong> التعديلات تُحفظ تلقائياً عند مغادرة الحقل. هذه الأرصدة لا تُسجّل كمعاملات جديدة.
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
