@@ -182,7 +182,17 @@ const DynamoGymApp = () => {
       ]);
       if(m.data) setMembers(m.data);
       if(c.data) setCustomers(c.data);
-      if(i.data) setInventory(i.data);
+      if(i.data) {
+        setInventory(i.data);
+        // Debug: show products with barcodes
+        const withBarcodes = i.data.filter((p: Product) => p.barcode);
+        console.log('📦 Products loaded:', i.data.length, '| With barcodes:', withBarcodes.length);
+        if(withBarcodes.length > 0) {
+          console.table(withBarcodes.map((p: Product) => ({name: p.name, barcode: p.barcode})));
+        } else {
+          console.warn('⚠️ No products have barcodes! Make sure the barcode column exists in Supabase.');
+        }
+      }
       if(s.data) setSuppliers(s.data);
       if(e.data) setEmployees(e.data);
       if(t.data) setTransactions(t.data);
@@ -794,10 +804,23 @@ const DynamoGymApp = () => {
                   <form onSubmit={async(e)=>{
                     e.preventDefault(); if(!requireSupabase()) return; setLoading(true); try{ 
                       const payload = { name: productForm.name, sale_price: Number(productForm.price), barcode: productForm.barcode || null };
-                      if(productForm.id) await supabase!.from('products').update(payload).eq('id', productForm.id);
-                      else await supabase!.from('products').insert([{...payload, quantity: 0}]); 
-                      setProductForm({id:'', name:'', price:'0', barcode:''}); await fetchData(); alert('تم الحفظ ✅');
-                    }catch(err:any){alert(err.message);}finally{setLoading(false);}
+                      console.log('💾 Saving product:', payload);
+                      let result;
+                      if(productForm.id) {
+                        result = await supabase!.from('products').update(payload).eq('id', productForm.id).select();
+                      } else {
+                        result = await supabase!.from('products').insert([{...payload, quantity: 0}]).select();
+                      }
+                      console.log('💾 Save result:', result);
+                      if(result.error) throw result.error;
+                      // تحقق من حفظ الباركود
+                      if(payload.barcode && result.data?.[0]?.barcode !== payload.barcode) {
+                        console.error('⚠️ Barcode was NOT saved! Column might not exist in Supabase.');
+                        alert('⚠️ تحذير: الباركود لم يُحفظ!\n\nتأكد من إضافة عمود barcode في Supabase:\nALTER TABLE products ADD COLUMN barcode TEXT;');
+                      }
+                      setProductForm({id:'', name:'', price:'0', barcode:''}); await fetchData(); 
+                      alert('تم الحفظ ✅' + (payload.barcode ? `\nالباركود: ${payload.barcode}` : ''));
+                    }catch(err:any){alert('خطأ: ' + err.message);}finally{setLoading(false);}
                   }} className="row g-2">
                     <div className="col-12">
                       <div className="input-group">
