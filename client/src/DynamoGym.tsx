@@ -465,6 +465,52 @@ const DynamoGymApp = () => {
 
           {view === 'members' && (
             <div className="row g-2">
+              {/* تنبيه الاشتراكات المنتهية اليوم */}
+              {(() => {
+                const today = new Date().toISOString().split('T')[0];
+                const expiringToday = members.filter(m => m.end_date === today);
+                const sendWhatsApp = (member: Member) => {
+                  const phone = member.phone.replace(/^0/, '972');
+                  const message = encodeURIComponent(
+`مرحباً ${member.name} 👋
+
+نتمنى لك يوماً سعيداً! نود إعلامك بأن اشتراكك في النادي ينتهي اليوم.
+
+يسعدنا استمرارك معنا 💪 ونتطلع لرؤيتك قريباً لتجديد اشتراكك.
+
+مع أطيب التحيات،
+إدارة النادي 🏋️`
+                  );
+                  window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                };
+                if (expiringToday.length === 0) return null;
+                return (
+                  <div className="col-12 mb-3">
+                    <div className="card p-3 border-0 bg-warning bg-opacity-10 border-top border-4 border-warning shadow-sm rounded-4">
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="fas fa-bell text-warning me-2 fa-lg"></i>
+                        <h6 className="fw-800 text-warning mb-0">اشتراكات تنتهي اليوم ({expiringToday.length})</h6>
+                      </div>
+                      <div className="d-flex flex-wrap gap-2">
+                        {expiringToday.map(m => (
+                          <div key={m.id} className="d-flex align-items-center bg-white rounded-pill px-3 py-2 shadow-sm border">
+                            <span className="fw-bold me-2">{m.name}</span>
+                            <button 
+                              className="btn btn-success btn-sm rounded-pill px-3 shadow-sm"
+                              onClick={() => sendWhatsApp(m)}
+                              title="إرسال تذكير واتساب"
+                            >
+                              <i className="fab fa-whatsapp me-1"></i>
+                              تذكير
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
               <div className="col-12 d-flex flex-wrap justify-content-between mb-3 align-items-center bg-white p-3 rounded-4 shadow-sm border">
                 <h5 className="fw-800 mb-0">قائمة المشتركين</h5>
                 <input className="form-control rounded-pill shadow-sm extra-small mt-2 mt-md-0" style={{maxWidth: '300px'}} placeholder="بحث..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
