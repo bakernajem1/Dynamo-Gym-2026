@@ -156,7 +156,15 @@ const DynamoGymApp = () => {
   const [repayingPerson, setRepayingPerson] = useState<any | null>(null);
   const [statementPerson, setStatementPerson] = useState<any | null>(null);
 
-  const navigateTo = (v: string) => { setView(v); setSidebarOpen(false); setSearchTerm(''); };
+  const navigateTo = (v: string) => { 
+    setView(v); 
+    setSidebarOpen(false); 
+    setSearchTerm(''); 
+    // تحديث البيانات عند الانتقال للمبيعات أو المشتريات
+    if(v === 'pos' || v === 'purchases') {
+      fetchData();
+    }
+  };
 
   const fetchData = useCallback(async () => {
     if (!supabase) {
@@ -722,10 +730,15 @@ const DynamoGymApp = () => {
                     </div>
                   </div>
                   {/* Debug: عدد الأصناف بباركود */}
-                  <div className="alert alert-info py-1 px-3 small mb-2">
-                    <i className="fas fa-info-circle me-1"></i>
-                    أصناف بباركود: <strong>{inventory.filter(p => p.barcode).length}</strong> من {inventory.length}
-                    {inventory.filter(p => p.barcode).length === 0 && <span className="text-danger ms-2">⚠️ لا يوجد أي أصناف بباركود!</span>}
+                  <div className="alert alert-info py-1 px-3 small mb-2 d-flex justify-content-between align-items-center">
+                    <span>
+                      <i className="fas fa-info-circle me-1"></i>
+                      أصناف بباركود: <strong>{inventory.filter(p => p.barcode).length}</strong> من {inventory.length}
+                      {inventory.filter(p => p.barcode).length === 0 && <span className="text-danger ms-2">⚠️ لا يوجد أي أصناف بباركود!</span>}
+                    </span>
+                    <button className="btn btn-sm btn-outline-primary rounded-pill" onClick={()=>fetchData()}>
+                      <i className="fas fa-sync-alt me-1"></i> تحديث
+                    </button>
                   </div>
                   <div className="card p-3 shadow-sm border-0 bg-white mb-3">
                     <input className="form-control rounded-pill shadow-sm mb-3 px-4 border extra-small" placeholder="بحث عن صنف..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
@@ -916,10 +929,15 @@ const DynamoGymApp = () => {
                     </div>
                   </div>
                   {/* Debug: عدد الأصناف بباركود */}
-                  <div className="alert alert-info py-1 px-3 small mb-2">
-                    <i className="fas fa-info-circle me-1"></i>
-                    أصناف بباركود: <strong>{inventory.filter(p => p.barcode).length}</strong> من {inventory.length}
-                    {inventory.filter(p => p.barcode).length === 0 && <span className="text-danger ms-2">⚠️ لا يوجد أي أصناف بباركود!</span>}
+                  <div className="alert alert-info py-1 px-3 small mb-2 d-flex justify-content-between align-items-center">
+                    <span>
+                      <i className="fas fa-info-circle me-1"></i>
+                      أصناف بباركود: <strong>{inventory.filter(p => p.barcode).length}</strong> من {inventory.length}
+                      {inventory.filter(p => p.barcode).length === 0 && <span className="text-danger ms-2">⚠️ لا يوجد أي أصناف بباركود!</span>}
+                    </span>
+                    <button className="btn btn-sm btn-outline-primary rounded-pill" onClick={()=>fetchData()}>
+                      <i className="fas fa-sync-alt me-1"></i> تحديث
+                    </button>
                   </div>
                   <div className="card p-3 shadow-sm bg-white mb-3 shadow-lg">
                     <h6 className="fw-800 mb-2 small text-muted">اختر الأصناف</h6>
