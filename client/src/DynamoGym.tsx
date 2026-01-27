@@ -109,7 +109,7 @@ interface Employee {
 }
 
 interface TransactionRecord {
-  id: string; type: 'MEMBERSHIP' | 'PURCHASE' | 'SALE' | 'EXPENSE' | 'DEBT_PAYMENT' | 'SUPPLIER_PAYMENT' | 'ADVANCE' | 'SALARY_PAYMENT' | 'PERSONAL_WITHDRAWAL';
+  id: string; type: 'MEMBERSHIP' | 'PURCHASE' | 'SALE' | 'EXPENSE' | 'DEBT_PAYMENT' | 'SUPPLIER_PAYMENT' | 'ADVANCE' | 'SALARY_PAYMENT' | 'PERSONAL_WITHDRAWAL' | 'OPENING_BALANCE';
   amount: number; discount: number; label: string; metadata: any; created_at: string;
 }
 
@@ -238,12 +238,14 @@ const DynamoGymApp = () => {
     };
   }, [transactions, members, customers]);
 
-  // الصندوق اليومي - يعرض فقط معاملات اليوم الحالي
+  // الصندوق اليومي - يعرض فقط معاملات اليوم الحالي + الرصيد الافتتاحي
   const cashBalance = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const todayTransactions = transactions.filter(t => t.created_at.split('T')[0] === today);
+    // الرصيد الافتتاحي (يُحسب دائماً وليس فقط اليوم)
+    const openingBalance = transactions.filter(t => t.type === 'OPENING_BALANCE').reduce((s, t) => s + t.amount, 0);
     
-    return todayTransactions.reduce((acc, t) => {
+    return openingBalance + todayTransactions.reduce((acc, t) => {
       // إضافة: مبيعات مقبوضة، اشتراكات مقبوضة، ديون محصلة
       if(['SALE', 'MEMBERSHIP', 'DEBT_PAYMENT'].includes(t.type)) return acc + t.amount;
       // خصم: مشتريات، مصروفات، مسحوبات شخصية، رواتب، سلف، سداد موردين
@@ -1188,7 +1190,61 @@ const DynamoGymApp = () => {
               <div className="col-12">
                 <div className="card p-4 shadow-lg border-0 bg-white border-top border-4 border-info">
                   <h5 className="fw-800 mb-4 text-info"><i className="fas fa-balance-scale me-2"></i>الأرصدة الافتتاحية</h5>
-                  <p className="text-muted small mb-4">استخدم هذه الصفحة لإدخال البيانات الموجودة قبل بدء استخدام النظام. هذه الأرصدة لا تؤثر على التقارير المالية.</p>
+                  <p className="text-muted small mb-4">استخدم هذه الصفحة لإدخال البيانات الموجودة قبل بدء استخدام النظام.</p>
+                  
+                  {/* رصيد الصندوق الافتتاحي */}
+                  <div className="card p-3 border-0 bg-dark text-white rounded-4 mb-4">
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                      <div>
+                        <h6 className="fw-800 mb-1"><i className="fas fa-cash-register me-2"></i>رصيد الصندوق الافتتاحي</h6>
+                        <small className="opacity-75">المبلغ النقدي الموجود عند بدء استخدام النظام (رأس المال + البضاعة)</small>
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="fw-800 fs-4">{formatNum(transactions.filter(t => t.type === 'OPENING_BALANCE').reduce((s, t) => s + t.amount, 0))} ₪</span>
+                        <form onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!requireSupabase()) return;
+                          const form = e.target as any;
+                          const amt = Number(form.openingAmount.value);
+                          if (amt <= 0) return alert('يرجى إدخال مبلغ صحيح!');
+                          setLoading(true);
+                          try {
+                            await supabase!.from('transactions').insert([{
+                              type: 'OPENING_BALANCE',
+                              amount: amt,
+                              label: 'رصيد افتتاحي',
+                              metadata: {}
+                            }]);
+                            form.reset();
+                            await fetchData();
+                            alert('تم إضافة الرصيد الافتتاحي ✅');
+                          } catch (err: any) { alert(err.message); } finally { setLoading(false); }
+                        }} className="d-flex gap-2">
+                          <input name="openingAmount" type="number" step="0.01" className="form-control rounded-pill text-center fw-bold" style={{width: '120px'}} placeholder="المبلغ" required />
+                          <button className="btn btn-success rounded-pill px-3 fw-bold">+ إضافة</button>
+                        </form>
+                      </div>
+                    </div>
+                    {transactions.filter(t => t.type === 'OPENING_BALANCE').length > 0 && (
+                      <div className="mt-3 pt-3 border-top border-secondary">
+                        <small className="text-muted">سجل الأرصدة الافتتاحية:</small>
+                        <div className="d-flex flex-wrap gap-2 mt-2">
+                          {transactions.filter(t => t.type === 'OPENING_BALANCE').map(t => (
+                            <span key={t.id} className="badge bg-light text-dark rounded-pill px-3 py-2 d-flex align-items-center gap-2">
+                              {formatNum(t.amount)} ₪
+                              <button className="btn btn-sm p-0 text-danger" onClick={async () => {
+                                if (!requireSupabase()) return;
+                                if (confirm('حذف هذا الرصيد؟')) {
+                                  await supabase!.from('transactions').delete().eq('id', t.id);
+                                  await fetchData();
+                                }
+                              }}><i className="fas fa-times"></i></button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   
                   <div className="row g-4">
                     {/* ديون الأعضاء */}
