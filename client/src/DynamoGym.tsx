@@ -252,13 +252,25 @@ const DynamoGymApp = () => {
     setShowBarcodeScanner(null);
   }, []);
 
-  const handleBarcodeScanned = useCallback((barcode: string, context: 'inventory'|'pos'|'purchase') => {
-    // البحث بالباركود - تجاهل المسافات والأحرف الزائدة
+  const handleBarcodeScanned = useCallback(async (barcode: string, context: 'inventory'|'pos'|'purchase') => {
     const cleanBarcode = barcode.trim();
-    const product = inventory.find(p => p.barcode && p.barcode.trim() === cleanBarcode);
     
-    console.log('Barcode scanned:', cleanBarcode, 'Context:', context, 'Found product:', product?.name || 'NONE');
-    console.log('Products with barcodes:', inventory.filter(p => p.barcode).map(p => ({name: p.name, barcode: p.barcode})));
+    // البحث في الـ state أولاً
+    let product = inventory.find(p => p.barcode && p.barcode.trim() === cleanBarcode);
+    
+    // إذا لم يوجد وكان Supabase متصل، نبحث مباشرة في قاعدة البيانات
+    if (!product && supabase && (context === 'pos' || context === 'purchase')) {
+      const { data } = await supabase.from('products').select('*').eq('barcode', cleanBarcode).single();
+      if (data) {
+        product = data as Product;
+        // تحديث الـ inventory state
+        setInventory(prev => {
+          const exists = prev.find(p => p.id === data.id);
+          if (exists) return prev.map(p => p.id === data.id ? data : p);
+          return [...prev, data];
+        });
+      }
+    }
     
     if (context === 'inventory') {
       if (product) {
@@ -274,9 +286,8 @@ const DynamoGymApp = () => {
         const ex = posCart.find(i => i.product.id === product.id);
         if (ex) setPosCart(posCart.map(i => i.product.id === product.id ? {...i, qty: i.qty+1} : i));
         else setPosCart([...posCart, {product, qty: 1}]);
-        // لا نحتاج alert عند الإضافة للسلة - الصنف يظهر في السلة
       } else { 
-        alert(`❌ الباركود: ${cleanBarcode}\nغير موجود في المخزون!\n\nاذهب لصفحة المخزون أولاً وأضف الصنف مع هذا الباركود`); 
+        alert(`❌ الباركود: ${cleanBarcode}\nغير موجود!\n\nأضف الصنف من المخزون أولاً`); 
       }
     } else if (context === 'purchase') {
       if (product) {
@@ -284,10 +295,10 @@ const DynamoGymApp = () => {
         if (ex) setPurchaseCart(purchaseCart.map(i => i.product.id === product.id ? {...i, qty: i.qty+1} : i));
         else setPurchaseCart([...purchaseCart, {product, qty: 1, cost: 0}]);
       } else { 
-        alert(`❌ الباركود: ${cleanBarcode}\nغير موجود في المخزون!\n\nاذهب لصفحة المخزون أولاً وأضف الصنف مع هذا الباركود`); 
+        alert(`❌ الباركود: ${cleanBarcode}\nغير موجود!\n\nأضف الصنف من المخزون أولاً`); 
       }
     }
-  }, [inventory, posCart, purchaseCart]);
+  }, [inventory, posCart, purchaseCart, supabase]);
 
   // --- حسابات الربط المالي للموظفين ---
   const getEmployeeBalance = useCallback((empId: string) => {
@@ -729,17 +740,6 @@ const DynamoGymApp = () => {
                       </button>
                     </div>
                   </div>
-                  {/* Debug: عدد الأصناف بباركود */}
-                  <div className="alert alert-info py-1 px-3 small mb-2 d-flex justify-content-between align-items-center">
-                    <span>
-                      <i className="fas fa-info-circle me-1"></i>
-                      أصناف بباركود: <strong>{inventory.filter(p => p.barcode).length}</strong> من {inventory.length}
-                      {inventory.filter(p => p.barcode).length === 0 && <span className="text-danger ms-2">⚠️ لا يوجد أي أصناف بباركود!</span>}
-                    </span>
-                    <button className="btn btn-sm btn-outline-primary rounded-pill" onClick={()=>fetchData()}>
-                      <i className="fas fa-sync-alt me-1"></i> تحديث
-                    </button>
-                  </div>
                   <div className="card p-3 shadow-sm border-0 bg-white mb-3">
                     <input className="form-control rounded-pill shadow-sm mb-3 px-4 border extra-small" placeholder="بحث عن صنف..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
                     <div className="row g-2 overflow-auto" style={{maxHeight: '30vh'}}>
@@ -927,17 +927,6 @@ const DynamoGymApp = () => {
                         <i className="fas fa-camera me-1"></i> كاميرا
                       </button>
                     </div>
-                  </div>
-                  {/* Debug: عدد الأصناف بباركود */}
-                  <div className="alert alert-info py-1 px-3 small mb-2 d-flex justify-content-between align-items-center">
-                    <span>
-                      <i className="fas fa-info-circle me-1"></i>
-                      أصناف بباركود: <strong>{inventory.filter(p => p.barcode).length}</strong> من {inventory.length}
-                      {inventory.filter(p => p.barcode).length === 0 && <span className="text-danger ms-2">⚠️ لا يوجد أي أصناف بباركود!</span>}
-                    </span>
-                    <button className="btn btn-sm btn-outline-primary rounded-pill" onClick={()=>fetchData()}>
-                      <i className="fas fa-sync-alt me-1"></i> تحديث
-                    </button>
                   </div>
                   <div className="card p-3 shadow-sm bg-white mb-3 shadow-lg">
                     <h6 className="fw-800 mb-2 small text-muted">اختر الأصناف</h6>
