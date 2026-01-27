@@ -1357,18 +1357,18 @@ const DynamoGymApp = () => {
                           <table className="table table-sm extra-small text-end mb-0">
                             <thead className="table-light sticky-top"><tr><th>المنتج</th><th>الكمية</th><th>تعديل</th></tr></thead>
                             <tbody>
-                              {products.map(p => (
+                              {inventory.map(p => (
                                 <tr key={p.id}>
                                   <td className="fw-bold">{p.name}</td>
-                                  <td className="fw-800">{p.stock}</td>
+                                  <td className="fw-800">{p.quantity || 0}</td>
                                   <td>
                                     <input type="number" className="form-control form-control-sm rounded-pill text-center" style={{width: '80px'}} 
-                                      defaultValue={p.stock} 
+                                      defaultValue={p.quantity || 0} 
                                       onBlur={async (e) => {
                                         if (!requireSupabase()) return;
                                         const newStock = Number(e.target.value) || 0;
-                                        if (newStock !== p.stock) {
-                                          await supabase!.from('products').update({ stock: newStock }).eq('id', p.id);
+                                        if (newStock !== (p.quantity || 0)) {
+                                          await supabase!.from('products').update({ quantity: newStock }).eq('id', p.id);
                                           await fetchData();
                                         }
                                       }} 
@@ -1378,7 +1378,7 @@ const DynamoGymApp = () => {
                               ))}
                             </tbody>
                           </table>
-                          {products.length === 0 && <p className="text-muted text-center py-3 mb-0">لا يوجد منتجات</p>}
+                          {inventory.length === 0 && <p className="text-muted text-center py-3 mb-0">لا يوجد منتجات</p>}
                         </div>
                       </div>
                     </div>
