@@ -1319,7 +1319,7 @@ const DynamoGymApp = () => {
                             <tbody>
                               {customers.map(c => (
                                 <tr key={c.id}>
-                                  <td className="fw-bold">{c.name}</td>
+                                  <td className="fw-bold">{c.full_name}</td>
                                   <td className="text-danger fw-800">{formatNum(c.total_debt)} ₪</td>
                                   <td>
                                     <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '100px'}} 
