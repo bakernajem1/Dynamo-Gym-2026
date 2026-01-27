@@ -950,6 +950,20 @@ const DynamoGymApp = () => {
                             <td><div className="d-flex gap-1">
                                <button className="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" onClick={()=>setRepayingPerson({...c, type: 'customer'})}>تسديد</button>
                                <button className="btn btn-sm btn-outline-dark rounded-pill px-3 shadow-sm" onClick={()=>setStatementPerson({...c, type: 'customer'})}>كشف</button>
+                               <button className="btn btn-sm btn-outline-primary rounded-pill shadow-sm" onClick={async()=>{
+                                 const tableName = (c as any).full_name ? 'customers' : (c as any).salary ? 'employees' : 'members';
+                                 const currentName = (c as any).full_name || (c as any).name;
+                                 const currentPhone = (c as any).phone_number || (c as any).phone;
+                                 const newName = prompt('الاسم:', currentName);
+                                 if(!newName) return;
+                                 const newPhone = prompt('رقم الجوال:', currentPhone);
+                                 if(!newPhone) return;
+                                 if(!requireSupabase()) return;
+                                 const updateData = tableName === 'customers' ? {full_name: newName, phone_number: newPhone} : {name: newName, phone: newPhone};
+                                 await supabase!.from(tableName).update(updateData).eq('id', c.id);
+                                 await fetchData();
+                                 alert('تم التعديل ✅');
+                               }}><i className="fas fa-edit"></i></button>
                                <a href={getWhatsAppLink((c as any).phone_number || (c as any).phone)} className="btn btn-sm btn-outline-success rounded-circle shadow-sm"><i className="fab fa-whatsapp"></i></a>
                             </div></td>
                           </tr>
@@ -969,6 +983,20 @@ const DynamoGymApp = () => {
                             <td><a href={getWhatsAppLink((c as any).phone_number || (c as any).phone)} className="text-success fs-5"><i className="fab fa-whatsapp"></i></a></td>
                             <td><div className="d-flex gap-1">
                                <button className="btn btn-sm btn-outline-dark rounded-pill px-3 shadow-sm" onClick={()=>setStatementPerson({...c, type: 'customer'})}>كشف</button>
+                               <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={async()=>{
+                                 const tableName = (c as any).full_name ? 'customers' : (c as any).salary ? 'employees' : 'members';
+                                 const currentName = (c as any).full_name || (c as any).name;
+                                 const currentPhone = (c as any).phone_number || (c as any).phone;
+                                 const newName = prompt('الاسم:', currentName);
+                                 if(!newName) return;
+                                 const newPhone = prompt('رقم الجوال:', currentPhone);
+                                 if(!newPhone) return;
+                                 if(!requireSupabase()) return;
+                                 const updateData = tableName === 'customers' ? {full_name: newName, phone_number: newPhone} : {name: newName, phone: newPhone};
+                                 await supabase!.from(tableName).update(updateData).eq('id', c.id);
+                                 await fetchData();
+                                 alert('تم التعديل ✅');
+                               }}><i className="fas fa-edit"></i></button>
                                <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{
                                  if(!requireSupabase()) return;
                                  if(((c as any).total_debt || 0) > 0) return alert('لا يمكن الحذف وعليه دين!');
