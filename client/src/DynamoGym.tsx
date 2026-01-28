@@ -1860,8 +1860,8 @@ const DynamoGymApp = () => {
         )}
 
         {statementPerson && (
-          <div className="modal-custom" onClick={()=>setStatementPerson(null)}>
-            <div className="card w-100 shadow-2xl border-0 bg-white rounded-5 p-4 border-top border-4 border-primary shadow-lg" style={{maxWidth: '780px'}} onClick={e=>e.stopPropagation()}>
+          <div className="modal-custom d-print-none" onClick={()=>setStatementPerson(null)}>
+            <div className="card w-100 shadow-2xl border-0 bg-white rounded-5 p-4 border-top border-4 border-primary shadow-lg print-statement" style={{maxWidth: '780px'}} onClick={e=>e.stopPropagation()}>
                <div className="d-flex justify-content-between mb-4 align-items-center border-bottom pb-3 statement-header">
                   <div className="d-flex align-items-center gap-3">
                     {clubLogo && <img src={clubLogo} style={{height: 75, width: 75}} className="rounded shadow-sm p-1 border border-primary" alt="Gym" />}

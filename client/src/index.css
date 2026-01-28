@@ -286,3 +286,43 @@
     inset: -1px;
   }
 }
+
+/* Print Styles for Statement */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  
+  .print-statement,
+  .print-statement * {
+    visibility: visible !important;
+  }
+  
+  .print-statement {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  
+  .modal-custom {
+    position: absolute !important;
+    background: white !important;
+  }
+  
+  .d-print-none {
+    display: none !important;
+  }
+  
+  @page {
+    margin: 10mm;
+    size: A4;
+  }
+}
