@@ -66,6 +66,104 @@ const getWhatsAppLink = (phone: string) => `https://wa.me/${phone?.replace(/[^0-
 const handleAutoSelect = (e: any) => e.target.select();
 const formatNum = (num: number) => Number(num || 0).toFixed(2);
 
+const printStatement = (person: any, transactions: any[], clubLogo: string | null, getEmployeeBalance: (id: number) => number) => {
+  const isEmployee = !!person.salary;
+  const isSupplier = !!person.company_name;
+  const personName = person.name || person.company_name || '';
+  const balance = person.total_debt || (isEmployee ? Math.abs(getEmployeeBalance(person.id)) : 0);
+  
+  const relevantTransactions = transactions.filter(t => 
+    t.metadata?.person_id === person.id || 
+    t.metadata?.member_id === person.id || 
+    t.metadata?.employee_id === person.id || 
+    t.metadata?.customer_id === person.id || 
+    t.metadata?.supplier_id === person.id
+  );
+  
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (!printWindow) return;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+      <meta charset="UTF-8">
+      <title>كشف حساب - ${personName}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 20px; direction: rtl; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #0d6efd; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo { height: 60px; width: 60px; border-radius: 8px; border: 2px solid #0d6efd; padding: 3px; }
+        .title { font-size: 24px; font-weight: 800; }
+        .title span { color: #dc3545; }
+        .subtitle { color: #666; font-size: 12px; }
+        .person-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .person-name { font-size: 20px; font-weight: 800; color: #0d6efd; }
+        .person-date { color: #666; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #e9ecef; padding: 10px; text-align: right; font-weight: 700; border: 1px solid #dee2e6; }
+        td { padding: 8px 10px; border: 1px solid #dee2e6; text-align: right; }
+        .text-success { color: #198754; }
+        .text-danger { color: #dc3545; }
+        .balance-box { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px; border-right: 5px solid #0d6efd; }
+        .balance-label { color: #666; font-size: 14px; margin-bottom: 5px; }
+        .balance-amount { font-size: 36px; font-weight: 800; color: #0d6efd; }
+        @media print { body { padding: 10px; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div>
+          <div class="title">Dynamo<span>Gym</span></div>
+          <div class="subtitle">كشف حساب رسمي</div>
+        </div>
+        ${clubLogo ? `<img src="${clubLogo}" class="logo" alt="Logo">` : ''}
+      </div>
+      
+      <div class="person-info">
+        <div class="person-name">${personName}</div>
+        <div class="person-date">تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}</div>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>البيان</th>
+            <th>المدفوع</th>
+            <th>دين مضاف</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${relevantTransactions.map(t => `
+            <tr>
+              <td style="color: #666;">${new Date(t.created_at).toLocaleDateString('ar-EG')}</td>
+              <td style="font-weight: 700;">${t.label}</td>
+              <td class="text-success" style="font-weight: 700;">${formatNum(t.amount)} ₪</td>
+              <td class="text-danger" style="font-weight: 700;">${formatNum(t.metadata?.debt_added || 0)} ₪</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      
+      <div class="balance-box">
+        <div class="balance-label">الرصيد المستحق حالياً</div>
+        <div class="balance-amount">${formatNum(balance)} ₪</div>
+      </div>
+      
+      <script>
+        window.onload = function() {
+          window.print();
+        }
+      </script>
+    </body>
+    </html>
+  `;
+  
+  printWindow.document.write(html);
+  printWindow.document.close();
+};
+
 const getDaysRemaining = (endDate: string) => {
   if (!endDate) return 0;
   const diff = new Date(endDate).getTime() - new Date().getTime();
@@ -1888,7 +1986,7 @@ const DynamoGymApp = () => {
                  <h1 className="fw-800 text-primary mb-0" style={{fontSize: '3.5rem'}}>{formatNum((statementPerson as any).total_debt || ((statementPerson as any).salary ? Math.abs(getEmployeeBalance(statementPerson.id)) : 0))} ₪</h1>
                </div>
                <div className="d-flex gap-2 mt-4 d-print-none">
-                 <button className="btn btn-dark flex-grow-1 rounded-pill py-3 fw-bold shadow-lg" onClick={()=>window.print()}>طباعة <i className="fas fa-print ms-2"></i></button>
+                 <button className="btn btn-dark flex-grow-1 rounded-pill py-3 fw-bold shadow-lg" onClick={()=>printStatement(statementPerson, transactions, clubLogo, getEmployeeBalance)}>طباعة <i className="fas fa-print ms-2"></i></button>
                  <a href={getWhatsAppLink((statementPerson as any).phone_number || (statementPerson as any).phone)} className="btn btn-success rounded-pill px-5 shadow-lg d-flex align-items-center transition-all hover-scale"><i className="fab fa-whatsapp fa-lg"></i></a>
                </div>
             </div>
