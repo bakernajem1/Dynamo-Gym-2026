@@ -1542,7 +1542,7 @@ const DynamoGymApp = () => {
                     <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
                       <div>
                         <h6 className="fw-800 mb-1"><i className="fas fa-cash-register me-2"></i>رصيد الصندوق الافتتاحي</h6>
-                        <small className="opacity-75">المبلغ النقدي الموجود عند بدء استخدام النظام (رأس المال + البضاعة)</small>
+                        <small className="opacity-75">المبلغ النقدي الموجود في الصندوق عند بدء استخدام النظام</small>
                       </div>
                       <div className="d-flex align-items-center gap-2">
                         <span className="fw-800 fs-4">{formatNum(transactions.filter(t => t.type === 'OPENING_BALANCE').reduce((s, t) => s + t.amount, 0))} ₪</span>
