@@ -210,7 +210,7 @@ interface Customer {
 }
 
 interface Product {
-  id: string; name: string; quantity: number; sale_price: number; barcode?: string;
+  id: string; name: string; quantity: number; sale_price: number; barcode?: string; cost_price?: number;
 }
 
 interface Supplier {
@@ -1748,27 +1748,29 @@ const DynamoGymApp = () => {
                                   <td className="fw-bold">{p.name}</td>
                                   <td>
                                     <input type="number" className="form-control form-control-sm rounded-pill text-center" style={{width: '70px'}} 
-                                      defaultValue={p.quantity || 0} 
+                                      value={p.quantity || 0}
+                                      onChange={(e) => {
+                                        const newQty = Number(e.target.value) || 0;
+                                        setInventory(inv => inv.map(item => item.id === p.id ? {...item, quantity: newQty} : item));
+                                      }}
                                       onBlur={async (e) => {
                                         if (!requireSupabase()) return;
                                         const newStock = Number(e.target.value) || 0;
-                                        if (newStock !== (p.quantity || 0)) {
-                                          await supabase!.from('products').update({ quantity: newStock }).eq('id', p.id);
-                                          await fetchData();
-                                        }
+                                        await supabase!.from('products').update({ quantity: newStock }).eq('id', p.id);
                                       }} 
                                     />
                                   </td>
                                   <td>
                                     <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '80px'}} 
-                                      defaultValue={p.cost_price || 0} 
+                                      value={p.cost_price || 0}
+                                      onChange={(e) => {
+                                        const newCost = Number(e.target.value) || 0;
+                                        setInventory(inv => inv.map(item => item.id === p.id ? {...item, cost_price: newCost} : item));
+                                      }}
                                       onBlur={async (e) => {
                                         if (!requireSupabase()) return;
                                         const newCost = Number(e.target.value) || 0;
-                                        if (newCost !== (p.cost_price || 0)) {
-                                          await supabase!.from('products').update({ cost_price: newCost }).eq('id', p.id);
-                                          await fetchData();
-                                        }
+                                        await supabase!.from('products').update({ cost_price: newCost }).eq('id', p.id);
                                       }} 
                                     />
                                   </td>
