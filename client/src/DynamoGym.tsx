@@ -267,6 +267,8 @@ const DynamoGymApp = () => {
   const [memberDetails, setMemberDetails] = useState<Member | null>(null);
   const [repayingPerson, setRepayingPerson] = useState<any | null>(null);
   const [statementPerson, setStatementPerson] = useState<any | null>(null);
+  const [employeeRecords, setEmployeeRecords] = useState<{employee: any, type: 'advances' | 'salaries'} | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<{id: string, amount: string} | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<TransactionRecord | null>(null);
 
   const navigateTo = (v: string) => { 
@@ -1212,9 +1214,11 @@ const DynamoGymApp = () => {
                           <td className="fw-bold">{e.name}</td>
                           <td className="fw-bold">{formatNum(e.salary)} ₪</td>
                           <td className={`fw-bold ${getEmployeeBalance(e.id) > 0 ? 'text-success' : 'text-danger'}`}>{formatNum(getEmployeeBalance(e.id))} ₪</td>
-                          <td><div className="d-flex gap-1">
+                          <td><div className="d-flex gap-1 flex-wrap">
                             <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={()=>setEmployeeForm({id:e.id, name:e.name, phone:e.phone, job:e.job_title, salary:String(e.salary)})}><i className="fas fa-edit"></i></button>
-                            <button className="btn btn-xs btn-outline-dark rounded-pill px-3" onClick={()=>setStatementPerson({...e, type:'employee'})}>كشف</button>
+                            <button className="btn btn-xs btn-outline-warning rounded-pill px-2" onClick={()=>setEmployeeRecords({employee: e, type: 'advances'})}>السلف</button>
+                            <button className="btn btn-xs btn-outline-success rounded-pill px-2" onClick={()=>setEmployeeRecords({employee: e, type: 'salaries'})}>الرواتب</button>
+                            <button className="btn btn-xs btn-outline-dark rounded-pill px-2" onClick={()=>setStatementPerson({...e, type:'employee'})}>كشف</button>
                             <a href={getWhatsAppLink(e.phone)} className="btn btn-xs btn-outline-success rounded-circle shadow-sm"><i className="fab fa-whatsapp"></i></a>
                           </div></td>
                         </tr>
@@ -2026,6 +2030,90 @@ const DynamoGymApp = () => {
                <div className="d-flex gap-2 mt-4 d-print-none">
                  <button className="btn btn-dark flex-grow-1 rounded-pill py-3 fw-bold shadow-lg" onClick={()=>printStatement(statementPerson, transactions, clubLogo, getEmployeeBalance)}>طباعة <i className="fas fa-print ms-2"></i></button>
                  <a href={getWhatsAppLink((statementPerson as any).phone_number || (statementPerson as any).phone)} className="btn btn-success rounded-pill px-5 shadow-lg d-flex align-items-center transition-all hover-scale"><i className="fab fa-whatsapp fa-lg"></i></a>
+               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Employee Records Modal - سجل السلف والرواتب */}
+        {employeeRecords && (
+          <div className="modal-custom" onClick={()=>{setEmployeeRecords(null); setEditingTransaction(null);}}>
+            <div className="card w-100 shadow-2xl border-0 bg-white rounded-5 p-4 border-top border-4 border-warning shadow-lg" style={{maxWidth: '600px'}} onClick={e=>e.stopPropagation()}>
+               <div className="d-flex justify-content-between mb-4 align-items-center border-bottom pb-3">
+                  <div>
+                    <h5 className="fw-800 mb-1 text-warning">
+                      <i className={`fas ${employeeRecords.type === 'advances' ? 'fa-hand-holding-usd' : 'fa-money-check-alt'} me-2`}></i>
+                      {employeeRecords.type === 'advances' ? 'سجل السلف' : 'سجل الرواتب'}
+                    </h5>
+                    <small className="text-muted fw-bold">{employeeRecords.employee.name}</small>
+                  </div>
+                  <button className="btn-close shadow-sm rounded-circle p-2" onClick={()=>{setEmployeeRecords(null); setEditingTransaction(null);}}></button>
+               </div>
+               <div className="table-responsive border rounded-4 overflow-hidden shadow-sm" style={{maxHeight: '400px'}}>
+                  <table className="table table-sm extra-small align-middle text-end table-hover mb-0">
+                    <thead className="table-warning"><tr><th>التاريخ</th><th>الشهر</th><th>المبلغ</th><th>إجراء</th></tr></thead>
+                    <tbody>
+                      {transactions
+                        .filter(t => t.metadata?.employee_id === employeeRecords.employee.id && t.type === (employeeRecords.type === 'advances' ? 'ADVANCE' : 'SALARY_PAYMENT'))
+                        .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .map(t=>(
+                        <tr key={t.id}>
+                          <td className="text-muted">{new Date(t.created_at).toLocaleDateString('ar-EG')}</td>
+                          <td className="fw-bold">{MONTHS_AR[(t.metadata?.month || 1) - 1]} {t.metadata?.year}</td>
+                          <td className="text-success fw-bold">
+                            {editingTransaction?.id === t.id ? (
+                              <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '100px'}}
+                                value={editingTransaction.amount}
+                                onChange={e => setEditingTransaction({...editingTransaction, amount: e.target.value})}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter' && supabase) {
+                                    await supabase.from('transactions').update({amount: Number(editingTransaction.amount)}).eq('id', t.id);
+                                    setEditingTransaction(null);
+                                    await fetchData();
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <>{formatNum(t.amount)} ₪</>
+                            )}
+                          </td>
+                          <td>
+                            <div className="d-flex gap-1">
+                              {editingTransaction?.id === t.id ? (
+                                <>
+                                  <button className="btn btn-xs btn-success rounded-pill px-2" onClick={async ()=>{
+                                    if(!supabase) return;
+                                    await supabase.from('transactions').update({amount: Number(editingTransaction.amount)}).eq('id', t.id);
+                                    setEditingTransaction(null);
+                                    await fetchData();
+                                  }}><i className="fas fa-check"></i></button>
+                                  <button className="btn btn-xs btn-secondary rounded-pill px-2" onClick={()=>setEditingTransaction(null)}><i className="fas fa-times"></i></button>
+                                </>
+                              ) : (
+                                <>
+                                  <button className="btn btn-xs btn-outline-primary rounded-pill px-2" onClick={()=>setEditingTransaction({id: t.id, amount: String(t.amount)})}><i className="fas fa-edit"></i></button>
+                                  <button className="btn btn-xs btn-outline-danger rounded-pill px-2" onClick={async ()=>{
+                                    if(!supabase) return;
+                                    if(confirm('هل تريد حذف هذا السجل؟')) {
+                                      await supabase.from('transactions').delete().eq('id', t.id);
+                                      await fetchData();
+                                    }
+                                  }}><i className="fas fa-trash"></i></button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {transactions.filter(t => t.metadata?.employee_id === employeeRecords.employee.id && t.type === (employeeRecords.type === 'advances' ? 'ADVANCE' : 'SALARY_PAYMENT')).length === 0 && (
+                    <p className="text-muted text-center py-4 mb-0">لا يوجد سجلات</p>
+                  )}
+               </div>
+               <div className="mt-4 p-3 bg-light rounded-4 text-center">
+                 <div className="small text-muted mb-1 fw-bold">إجمالي {employeeRecords.type === 'advances' ? 'السلف' : 'الرواتب المدفوعة'}</div>
+                 <h3 className="fw-800 mb-0 text-warning">{formatNum(transactions.filter(t => t.metadata?.employee_id === employeeRecords.employee.id && t.type === (employeeRecords.type === 'advances' ? 'ADVANCE' : 'SALARY_PAYMENT')).reduce((s,t)=>s+t.amount, 0))} ₪</h3>
                </div>
             </div>
           </div>
