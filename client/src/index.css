@@ -289,32 +289,45 @@
 
 /* Print Styles for Statement */
 @media print {
-  body * {
-    visibility: hidden !important;
+  html, body {
+    visibility: visible !important;
+    overflow: visible !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
-  .print-statement,
-  .print-statement * {
+  body > *:not(.modal-custom) {
+    display: none !important;
+  }
+  
+  .modal-custom {
+    display: block !important;
     visibility: visible !important;
+    position: static !important;
+    background: white !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
   }
   
   .print-statement {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    visibility: visible !important;
+    position: static !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 20px !important;
+    padding: 15px !important;
     background: white !important;
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
   }
   
-  .modal-custom {
-    position: absolute !important;
-    background: white !important;
+  .print-statement * {
+    visibility: visible !important;
   }
   
   .d-print-none {
@@ -322,7 +335,7 @@
   }
   
   @page {
-    margin: 10mm;
+    margin: 8mm;
     size: A4;
   }
 }
