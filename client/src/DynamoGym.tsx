@@ -234,6 +234,13 @@ const DynamoGymApp = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [clubLogo, setClubLogo] = useState<string | null>(localStorage.getItem('dynamogym_logo'));
+  const [toast, setToast] = useState<string | null>(null);
+  
+  // دالة إظهار إشعار مؤقت
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
 
   // حالات البيانات الأساسية
   const [members, setMembers] = useState<Member[]>([]);
@@ -391,7 +398,7 @@ const DynamoGymApp = () => {
     if (context === 'inventory') {
       if (product) {
         setProductForm({ id: product.id, name: product.name, price: String(product.sale_price), barcode: product.barcode || '' });
-        alert(`✅ تم العثور على: ${product.name}`);
+        showToast(`تم العثور على: ${product.name}`);
       } else {
         setProductForm({ id: '', name: '', price: '0', barcode: cleanBarcode });
         alert(`📦 باركود جديد: ${cleanBarcode}\nأدخل اسم الصنف والسعر ثم اضغط حفظ`);
@@ -402,7 +409,7 @@ const DynamoGymApp = () => {
         const ex = posCart.find(i => i.product.id === product!.id);
         if (ex) setPosCart(posCart.map(i => i.product.id === product!.id ? {...i, qty: i.qty+1} : i));
         else setPosCart([...posCart, {product, qty: 1}]);
-        alert(`✅ تمت الإضافة: ${product.name}`);
+        showToast(`تمت الإضافة: ${product.name}`);
       } else { 
         alert(`❌ الباركود: ${cleanBarcode}\nغير موجود!\n\nأضف الصنف من المخزون أولاً`); 
       }
@@ -411,7 +418,7 @@ const DynamoGymApp = () => {
         const ex = purchaseCart.find(i => i.product.id === product!.id);
         if (ex) setPurchaseCart(purchaseCart.map(i => i.product.id === product!.id ? {...i, qty: i.qty+1} : i));
         else setPurchaseCart([...purchaseCart, {product, qty: 1, cost: 0}]);
-        alert(`✅ تمت الإضافة: ${product.name}`);
+        showToast(`تمت الإضافة: ${product.name}`);
       } else { 
         alert(`❌ الباركود: ${cleanBarcode}\nغير موجود!\n\nأضف الصنف من المخزون أولاً`); 
       }
@@ -532,7 +539,7 @@ const DynamoGymApp = () => {
           if (!custExists) await supabase!.from('customers').insert([{ full_name: memberForm.name, phone_number: memberForm.phone, total_debt: 0 }]);
         }
       }
-      await fetchData(); navigateTo('members'); alert('تم الحفظ بنجاح ✅');
+      await fetchData(); navigateTo('members'); showToast('تم الحفظ بنجاح');
     } catch (err: any) { alert(err.message); } finally { setLoading(false); }
   };
 
@@ -579,7 +586,7 @@ const DynamoGymApp = () => {
       }
 
       setPosCart([]); setPosForm({ personId:'', discount:'0', paid:'0', mode:'CASH' });
-      await fetchData(); alert('تمت العملية ✅');
+      await fetchData(); showToast('تمت العملية بنجاح');
     } catch (err: any) { alert(err.message); } finally { setLoading(false); }
   };
 
@@ -622,7 +629,7 @@ const DynamoGymApp = () => {
         await supabase!.from('products').update({ quantity: (item.product.quantity || 0) + item.qty }).eq('id', item.product.id);
       }
       setPurchaseCart([]); setPurchaseForm({ supplierId:'', discount:'0', paid:'0', mode:'CASH', editId:'' });
-      await fetchData(); alert('تم الحفظ ✅');
+      await fetchData(); showToast('تم الحفظ');
     } catch (err: any) { alert(err.message); } finally { setLoading(false); }
   };
 
@@ -672,6 +679,15 @@ const DynamoGymApp = () => {
       </aside>
 
       <main className="main-content flex-grow-1">
+        {/* Toast Notification */}
+        {toast && (
+          <div style={{position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, animation: 'fadeIn 0.3s ease-out'}}>
+            <div className="bg-success text-white px-4 py-2 rounded-pill shadow-lg d-flex align-items-center gap-2">
+              <i className="fas fa-check-circle"></i>
+              <span className="fw-bold">{toast}</span>
+            </div>
+          </div>
+        )}
         <header className="glass-header px-4 d-flex justify-content-between align-items-center bg-white shadow-sm border-bottom">
           <div className="d-flex align-items-center gap-2">
             <button className="btn d-lg-none p-0" onClick={(e)=>{ e.stopPropagation(); setSidebarOpen(true); }}><i className="fas fa-bars fs-4"></i></button>
@@ -990,7 +1006,7 @@ const DynamoGymApp = () => {
                         alert('⚠️ تحذير: الباركود لم يُحفظ!\n\nتأكد من إضافة عمود barcode في Supabase:\nALTER TABLE products ADD COLUMN barcode TEXT;');
                       }
                       setProductForm({id:'', name:'', price:'0', barcode:''}); await fetchData(); 
-                      alert('تم الحفظ ✅' + (payload.barcode ? `\nالباركود: ${payload.barcode}` : ''));
+                      showToast('تم الحفظ');
                     }catch(err:any){alert('خطأ: ' + err.message);}finally{setLoading(false);}
                   }} className="row g-2">
                     <div className="col-12">
@@ -1161,7 +1177,7 @@ const DynamoGymApp = () => {
                       const p = {name:employeeForm.name, phone:employeeForm.phone, job_title:employeeForm.job, salary:Number(employeeForm.salary)};
                       if(employeeForm.id) await supabase!.from('employees').update(p).eq('id', employeeForm.id);
                       else await supabase!.from('employees').insert([p]);
-                      setEmployeeForm({id:'', name:'', phone:'', job:'مدرب لياقة', salary:'0'}); await fetchData(); alert('تم الحفظ ✅');
+                      setEmployeeForm({id:'', name:'', phone:'', job:'مدرب لياقة', salary:'0'}); await fetchData(); showToast('تم الحفظ');
                     } catch(err:any){alert(err.message);} finally{setLoading(false);}
                   }} className="row g-2">
                     <input className="form-control rounded-pill shadow-sm" placeholder="الاسم" value={employeeForm.name} onChange={e=>setEmployeeForm({...employeeForm, name:e.target.value})} required />
@@ -1180,7 +1196,7 @@ const DynamoGymApp = () => {
                       if (amt > bal) return alert(`الرصيد المتاح ${formatNum(bal)} ₪ فقط! (الراتب - السلف - الديون)`);
                       setLoading(true); try {
                         await supabase!.from('transactions').insert({ type: f.type.value, amount: amt, label: `${f.type.value==='SALARY_PAYMENT'?'راتب':'سلفة'} لـ: ${employees.find(ev=>ev.id===empId)?.name}`, metadata: { employee_id: empId, month: f.month.value, year: f.year.value } });
-                        f.reset(); await fetchData(); alert('تم الصرف ✅');
+                        f.reset(); await fetchData(); showToast('تم الصرف');
                       } catch(err: any){ alert(err.message); } finally { setLoading(false); }
                    }} className="row g-2">
                       <select name="eid" className="form-select rounded-pill shadow-sm" required><option value="">-- اختر الموظف --</option>{employees.map(e=><option key={e.id} value={e.id}>{e.name} (المتاح: {formatNum(getEmployeeBalance(e.id))} ₪)</option>)}</select>
@@ -1283,7 +1299,7 @@ const DynamoGymApp = () => {
                                  const updateData = tableName === 'customers' ? {full_name: newName, phone_number: newPhone} : {name: newName, phone: newPhone};
                                  await supabase!.from(tableName).update(updateData).eq('id', c.id);
                                  await fetchData();
-                                 alert('تم التعديل ✅');
+                                 showToast('تم التعديل');
                                }}><i className="fas fa-edit"></i></button>
                                <a href={getWhatsAppLink((c as any).phone_number || (c as any).phone)} className="btn btn-sm btn-outline-success rounded-circle shadow-sm"><i className="fab fa-whatsapp"></i></a>
                             </div></td>
@@ -1316,7 +1332,7 @@ const DynamoGymApp = () => {
                                  const updateData = tableName === 'customers' ? {full_name: newName, phone_number: newPhone} : {name: newName, phone: newPhone};
                                  await supabase!.from(tableName).update(updateData).eq('id', c.id);
                                  await fetchData();
-                                 alert('تم التعديل ✅');
+                                 showToast('تم التعديل');
                                }}><i className="fas fa-edit"></i></button>
                                <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{
                                  if(!requireSupabase()) return;
@@ -1358,7 +1374,7 @@ const DynamoGymApp = () => {
                       }
                       setExpenseForm({ id: '', label: '', amount: '0', category: 'عامة' });
                       await fetchData();
-                      alert('تم الحفظ بنجاح ✅');
+                      showToast('تم الحفظ');
                     } catch (err: any) { alert(err.message); } finally { setLoading(false); }
                   }} className="row g-2">
                     <input className="form-control rounded-pill shadow-sm" placeholder="وصف المصروف" value={expenseForm.label} onChange={e => setExpenseForm({ ...expenseForm, label: e.target.value })} required />
@@ -1406,7 +1422,7 @@ const DynamoGymApp = () => {
                       }]);
                       form.reset();
                       await fetchData();
-                      alert('تم تسجيل المسحوبات ✅');
+                      showToast('تم تسجيل المسحوبات');
                     } catch (err: any) { alert(err.message); } finally { setLoading(false); }
                   }} className="row g-2">
                     <input name="withdrawalNote" className="form-control rounded-pill shadow-sm" placeholder="ملاحظة (اختياري)" />
@@ -1566,7 +1582,7 @@ const DynamoGymApp = () => {
                             }]);
                             form.reset();
                             await fetchData();
-                            alert('تم إضافة الرصيد الافتتاحي ✅');
+                            showToast('تم إضافة الرصيد الافتتاحي');
                           } catch (err: any) { alert(err.message); } finally { setLoading(false); }
                         }} className="d-flex gap-2">
                           <input name="openingAmount" type="number" step="0.01" className="form-control rounded-pill text-center fw-bold" style={{width: '120px'}} placeholder="المبلغ" required />
@@ -1788,7 +1804,7 @@ const DynamoGymApp = () => {
                     e.preventDefault();
                     if(passForm.old !== (localStorage.getItem('dynamogym_pass') || 'admin')) return alert('كلمة المرور الحالية خاطئة');
                     if(passForm.newP !== passForm.conf) return alert('الجديدة غير متطابقة');
-                    localStorage.setItem('dynamogym_pass', passForm.newP); alert('تم التحديث بنجاح ✅'); setPassForm({old:'', newP:'', conf:''});
+                    localStorage.setItem('dynamogym_pass', passForm.newP); showToast('تم التحديث'); setPassForm({old:'', newP:'', conf:''});
                   }} className="row g-3">
                     <input className="form-control rounded-pill text-center shadow-sm" type="password" placeholder="القديمة" value={passForm.old} onChange={e=>setPassForm({...passForm, old:e.target.value})} />
                     <input className="form-control rounded-pill text-center shadow-sm" type="password" placeholder="الجديدة" value={passForm.newP} onChange={e=>setPassForm({...passForm, newP:e.target.value})} />
@@ -1817,7 +1833,7 @@ const DynamoGymApp = () => {
                         const p = {name:supplierForm.name, phone:supplierForm.phone, category:supplierForm.category};
                         if(supplierForm.id) await supabase!.from('suppliers').update(p).eq('id', supplierForm.id);
                         else await supabase!.from('suppliers').insert([{...p, total_debt: 0}]);
-                        setSupplierForm({id:'', name:'', phone:'', category:''}); await fetchData(); alert('تم الحفظ ✅');
+                        setSupplierForm({id:'', name:'', phone:'', category:''}); await fetchData(); showToast('تم الحفظ');
                       } catch(err:any){alert(err.message);} finally{setLoading(false);}
                     }} className="row g-2">
                       <input className="form-control rounded-pill shadow-sm" placeholder="الاسم" value={supplierForm.name} onChange={e=>setSupplierForm({...supplierForm, name:e.target.value})} required />
