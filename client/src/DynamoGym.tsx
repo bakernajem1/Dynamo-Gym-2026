@@ -72,6 +72,20 @@ const printStatement = (person: any, transactions: any[], clubLogo: string | nul
   const personName = person.name || person.company_name || '';
   const balance = person.total_debt || (isEmployee ? Math.abs(getEmployeeBalance(person.id)) : 0);
   
+  // Color logic:
+  // Customer: red if they owe us (positive debt), green if we owe them (negative)
+  // Employee: always green
+  // Supplier: red if we owe them (positive), green if they owe us (negative)
+  let balanceColor = '#0d6efd'; // default blue
+  if (isEmployee) {
+    balanceColor = '#198754'; // always green for employees
+  } else if (isSupplier) {
+    balanceColor = balance > 0 ? '#dc3545' : '#198754'; // red if we owe, green if they owe us
+  } else {
+    // Customer
+    balanceColor = balance > 0 ? '#dc3545' : '#198754'; // red if they owe us, green if we owe them
+  }
+  
   const relevantTransactions = transactions.filter(t => 
     t.metadata?.person_id === person.id || 
     t.metadata?.member_id === person.id || 
@@ -107,7 +121,7 @@ const printStatement = (person: any, transactions: any[], clubLogo: string | nul
         .text-danger { color: #dc3545; }
         .balance-box { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px; border-right: 5px solid #0d6efd; }
         .balance-label { color: #666; font-size: 14px; margin-bottom: 5px; }
-        .balance-amount { font-size: 36px; font-weight: 800; color: #0d6efd; }
+        .balance-amount { font-size: 36px; font-weight: 800; color: ${balanceColor}; }
         @media print { body { padding: 10px; } }
       </style>
     </head>
@@ -1981,9 +1995,9 @@ const DynamoGymApp = () => {
                     </tbody>
                   </table>
                </div>
-               <div className="mt-4 p-4 bg-light rounded-4 text-center border-4 border-start border-primary shadow-inner">
+               <div className="mt-4 p-4 bg-light rounded-4 text-center border-4 border-start shadow-inner" style={{borderColor: (statementPerson as any).salary ? '#198754' : ((statementPerson as any).total_debt > 0 ? '#dc3545' : '#198754')}}>
                  <div className="small text-muted mb-2 fw-bold">الرصيد المستحق حالياً</div>
-                 <h1 className="fw-800 text-primary mb-0" style={{fontSize: '3.5rem'}}>{formatNum((statementPerson as any).total_debt || ((statementPerson as any).salary ? Math.abs(getEmployeeBalance(statementPerson.id)) : 0))} ₪</h1>
+                 <h1 className={`fw-800 mb-0 ${(statementPerson as any).salary ? 'text-success' : ((statementPerson as any).total_debt > 0 ? 'text-danger' : 'text-success')}`} style={{fontSize: '3.5rem'}}>{formatNum((statementPerson as any).total_debt || ((statementPerson as any).salary ? Math.abs(getEmployeeBalance(statementPerson.id)) : 0))} ₪</h1>
                </div>
                <div className="d-flex gap-2 mt-4 d-print-none">
                  <button className="btn btn-dark flex-grow-1 rounded-pill py-3 fw-bold shadow-lg" onClick={()=>printStatement(statementPerson, transactions, clubLogo, getEmployeeBalance)}>طباعة <i className="fas fa-print ms-2"></i></button>
