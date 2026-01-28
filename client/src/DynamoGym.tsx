@@ -992,7 +992,13 @@ const DynamoGymApp = () => {
                               {purchaseCart.map((item, idx)=>(
                                  <tr key={idx}>
                                     <td className="fw-bold">{item.product.name}</td>
-                                    <td><input type="number" className="form-control form-control-sm rounded-pill text-center w-75 mx-auto" onFocus={handleAutoSelect} value={item.qty} onChange={e=>setPurchaseCart(purchaseCart.map((c,i)=>i===idx?{...c, qty: Number(e.target.value)}:c))} /></td>
+                                    <td>
+                                      <div className="d-flex align-items-center justify-content-center gap-1">
+                                        <button className="btn btn-xs btn-outline-danger rounded-circle" style={{width: '24px', height: '24px', padding: 0}} onClick={()=>setPurchaseCart(purchaseCart.map((c,i)=>i===idx?{...c, qty: Math.max(1, c.qty - 1)}:c))}><i className="fas fa-minus" style={{fontSize: '10px'}}></i></button>
+                                        <input type="number" className="form-control form-control-sm rounded-pill text-center" style={{width: '50px'}} onFocus={handleAutoSelect} value={item.qty} onChange={e=>setPurchaseCart(purchaseCart.map((c,i)=>i===idx?{...c, qty: Number(e.target.value)}:c))} />
+                                        <button className="btn btn-xs btn-outline-success rounded-circle" style={{width: '24px', height: '24px', padding: 0}} onClick={()=>setPurchaseCart(purchaseCart.map((c,i)=>i===idx?{...c, qty: c.qty + 1}:c))}><i className="fas fa-plus" style={{fontSize: '10px'}}></i></button>
+                                      </div>
+                                    </td>
                                     <td><input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center w-75 mx-auto border-info" onFocus={handleAutoSelect} value={item.cost} onChange={e=>setPurchaseCart(purchaseCart.map((c,i)=>i===idx?{...c, cost: Number(e.target.value)}:c))} /></td>
                                     <td className="fw-bold text-info">{formatNum(item.qty * item.cost)} ₪</td>
                                     <td><button className="btn btn-xs text-danger" onClick={()=>setPurchaseCart(purchaseCart.filter((_,i)=>i!==idx))}><i className="fas fa-trash"></i></button></td>
