@@ -1611,7 +1611,14 @@ const DynamoGymApp = () => {
                                         if (!requireSupabase()) return;
                                         const newDebt = Number(e.target.value) || 0;
                                         if (newDebt !== m.total_debt) {
+                                          const diff = newDebt - m.total_debt;
                                           await supabase!.from('members').update({ total_debt: newDebt }).eq('id', m.id);
+                                          await supabase!.from('transactions').insert([{
+                                            type: 'OPENING_BALANCE',
+                                            amount: 0,
+                                            label: 'رصيد افتتاحي - دين عضو',
+                                            metadata: { member_id: m.id, member_name: m.name, debt_added: diff }
+                                          }]);
                                           await fetchData();
                                         }
                                       }} 
@@ -1645,7 +1652,14 @@ const DynamoGymApp = () => {
                                         if (!requireSupabase()) return;
                                         const newDebt = Number(e.target.value) || 0;
                                         if (newDebt !== c.total_debt) {
+                                          const diff = newDebt - c.total_debt;
                                           await supabase!.from('customers').update({ total_debt: newDebt }).eq('id', c.id);
+                                          await supabase!.from('transactions').insert([{
+                                            type: 'OPENING_BALANCE',
+                                            amount: 0,
+                                            label: 'رصيد افتتاحي - دين عميل',
+                                            metadata: { customer_id: c.id, customer_name: c.full_name, debt_added: diff }
+                                          }]);
                                           await fetchData();
                                         }
                                       }} 
@@ -1679,7 +1693,14 @@ const DynamoGymApp = () => {
                                         if (!requireSupabase()) return;
                                         const newDebt = Number(e.target.value) || 0;
                                         if (newDebt !== s.total_debt) {
+                                          const diff = newDebt - s.total_debt;
                                           await supabase!.from('suppliers').update({ total_debt: newDebt }).eq('id', s.id);
+                                          await supabase!.from('transactions').insert([{
+                                            type: 'OPENING_BALANCE',
+                                            amount: 0,
+                                            label: 'رصيد افتتاحي - دين مورد',
+                                            metadata: { supplier_id: s.id, supplier_name: s.name, debt_added: diff }
+                                          }]);
                                           await fetchData();
                                         }
                                       }} 
