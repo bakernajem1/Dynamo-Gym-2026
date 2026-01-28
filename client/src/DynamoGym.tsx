@@ -1723,16 +1723,15 @@ const DynamoGymApp = () => {
                     <div className="col-md-6">
                       <div className="card p-3 border-0 bg-warning bg-opacity-10 rounded-4 h-100">
                         <h6 className="fw-800 text-warning mb-3"><i className="fas fa-boxes me-2"></i>مخزون المنتجات</h6>
-                        <div className="table-responsive" style={{maxHeight: '250px', overflowY: 'auto'}}>
+                        <div className="table-responsive" style={{maxHeight: '300px', overflowY: 'auto'}}>
                           <table className="table table-sm extra-small text-end mb-0">
-                            <thead className="table-light sticky-top"><tr><th>المنتج</th><th>الكمية</th><th>تعديل</th></tr></thead>
+                            <thead className="table-light sticky-top"><tr><th>المنتج</th><th>الكمية</th><th>سعر التكلفة</th><th>القيمة</th></tr></thead>
                             <tbody>
                               {inventory.map(p => (
                                 <tr key={p.id}>
                                   <td className="fw-bold">{p.name}</td>
-                                  <td className="fw-800">{p.quantity || 0}</td>
                                   <td>
-                                    <input type="number" className="form-control form-control-sm rounded-pill text-center" style={{width: '80px'}} 
+                                    <input type="number" className="form-control form-control-sm rounded-pill text-center" style={{width: '70px'}} 
                                       defaultValue={p.quantity || 0} 
                                       onBlur={async (e) => {
                                         if (!requireSupabase()) return;
@@ -1744,11 +1743,28 @@ const DynamoGymApp = () => {
                                       }} 
                                     />
                                   </td>
+                                  <td>
+                                    <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '80px'}} 
+                                      defaultValue={p.cost_price || 0} 
+                                      onBlur={async (e) => {
+                                        if (!requireSupabase()) return;
+                                        const newCost = Number(e.target.value) || 0;
+                                        if (newCost !== (p.cost_price || 0)) {
+                                          await supabase!.from('products').update({ cost_price: newCost }).eq('id', p.id);
+                                          await fetchData();
+                                        }
+                                      }} 
+                                    />
+                                  </td>
+                                  <td className="fw-800 text-success">{formatNum((p.quantity || 0) * (p.cost_price || 0))} ₪</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                           {inventory.length === 0 && <p className="text-muted text-center py-3 mb-0">لا يوجد منتجات</p>}
+                        </div>
+                        <div className="mt-2 p-2 bg-warning bg-opacity-25 rounded-3 text-center">
+                          <small className="fw-bold">إجمالي قيمة المخزون: <span className="text-success">{formatNum(inventory.reduce((s,p) => s + ((p.quantity || 0) * (p.cost_price || 0)), 0))} ₪</span></small>
                         </div>
                       </div>
                     </div>
