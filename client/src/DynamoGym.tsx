@@ -1271,7 +1271,7 @@ const DynamoGymApp = () => {
                       <select className="form-select form-select-sm rounded-pill shadow-sm border" style={{width:85}} value={selectedYear} onChange={e=>setSelectedYear(Number(e.target.value))}>
                         {YEARS.map(y=><option key={y} value={y}>{y}</option>)}
                       </select>
-                      <div className="bg-light p-2 rounded-pill px-3 border shadow-sm small fw-bold">دين شهر {MONTHS_AR[selectedMonth-1]} {selectedYear}: <span className="text-danger fw-800 ms-1">{formatNum(transactions.filter(t=> (new Date(t.created_at).getMonth()+1 === selectedMonth) && (new Date(t.created_at).getFullYear() === selectedYear) && (t.metadata?.debt_added > 0)).reduce((s,t)=> s + (t.metadata.debt_added || 0), 0))} ₪</span></div>
+                      <div className="bg-light p-2 rounded-pill px-3 border shadow-sm small fw-bold">دين شهر {MONTHS_AR[selectedMonth-1]} {selectedYear}: <span className="text-danger fw-800 ms-1">{formatNum(transactions.filter(t=> (new Date(t.created_at).getMonth()+1 === selectedMonth) && (new Date(t.created_at).getFullYear() === selectedYear) && (t.metadata?.debt_added > 0) && t.type !== 'PURCHASE').reduce((s,t)=> s + (t.metadata.debt_added || 0), 0))} ₪</span></div>
                     </div>
                   </div>
                   
