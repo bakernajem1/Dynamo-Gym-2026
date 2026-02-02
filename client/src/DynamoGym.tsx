@@ -1254,12 +1254,15 @@ const DynamoGymApp = () => {
                     <h5 className="fw-800 mb-0 text-danger">العملاء والمديونيات</h5>
                     <div className="d-flex gap-2 mt-3 mt-md-0 align-items-center flex-wrap">
                       <input className="form-control form-control-sm rounded-pill shadow-sm border px-3 extra-small" style={{maxWidth: '200px'}} placeholder="بحث..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
-                      <button className="btn btn-danger btn-sm rounded-pill px-4 shadow-sm fw-bold" onClick={()=>{
+                      <button className="btn btn-danger btn-sm rounded-pill px-4 shadow-sm fw-bold" onClick={async ()=>{
                          if(!requireSupabase()) return;
                          const n = prompt('اسم العميل:'); const ph = prompt('رقم الجوال:');
                          if(n && ph){
                            if(checkDuplicate(n, ph)) return alert('البيانات موجودة مسبقاً!');
-                           supabase!.from('customers').insert([{full_name: n, phone_number: ph, total_debt: 0}]).then(()=>fetchData());
+                           const { error } = await supabase!.from('customers').insert([{full_name: n, phone_number: ph, total_debt: 0}]);
+                           if(error) { alert('خطأ: ' + error.message); return; }
+                           await fetchData();
+                           showToast('تم إضافة العميل');
                          }
                       }}>إضافة عميل +</button>
                       <select className="form-select form-select-sm rounded-pill shadow-sm border" style={{width:130}} value={selectedMonth} onChange={e=>setSelectedMonth(Number(e.target.value))}>
