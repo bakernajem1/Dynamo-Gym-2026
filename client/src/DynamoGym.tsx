@@ -350,11 +350,24 @@ const DynamoGymApp = () => {
         if (scannerRef.current) {
           try { await scannerRef.current.stop(); } catch(e) {}
         }
-        const scanner = new Html5Qrcode(scannerId);
+        const scanner = new Html5Qrcode(scannerId, { 
+          verbose: false,
+          formatsToSupport: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        });
         scannerRef.current = scanner;
+        
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const config = {
+          fps: isIOS ? 5 : 10,
+          qrbox: { width: 280, height: 120 },
+          aspectRatio: isIOS ? 1.0 : 1.5,
+          disableFlip: false,
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        };
+        
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 100 } },
+          config,
           async (decodedText) => {
             stopBarcodeScanner();
             await handleBarcodeScanned(decodedText, context);
@@ -362,10 +375,21 @@ const DynamoGymApp = () => {
           () => {}
         );
       } catch (err: any) {
-        alert('خطأ في تشغيل الكاميرا: ' + err.message);
+        console.error('Camera error:', err);
+        let msg = 'خطأ في تشغيل الكاميرا:\n';
+        if (err.message?.includes('Permission')) {
+          msg += 'يرجى السماح بالوصول للكاميرا من إعدادات المتصفح';
+        } else if (err.message?.includes('NotFound') || err.message?.includes('not found')) {
+          msg += 'لم يتم العثور على كاميرا';
+        } else if (err.message?.includes('HTTPS') || err.message?.includes('secure')) {
+          msg += 'الكاميرا تتطلب اتصال HTTPS آمن';
+        } else {
+          msg += err.message || 'خطأ غير معروف';
+        }
+        alert(msg);
         setShowBarcodeScanner(null);
       }
-    }, 300);
+    }, 500);
   }, []);
 
   const stopBarcodeScanner = useCallback(async () => {
