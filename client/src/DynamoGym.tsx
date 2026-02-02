@@ -253,6 +253,8 @@ const DynamoGymApp = () => {
   // الفلاتر
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [reportFromDate, setReportFromDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
+  const [reportToDate, setReportToDate] = useState(new Date().toISOString().split('T')[0]);
 
   // نماذج الإدخال
   const [memberForm, setMemberForm] = useState({ id:'', name:'', phone:'', plan:'شهر واحد', price:'130', discount:'0', paid:'0', start:new Date().toISOString().split('T')[0], weight:'', height:'', photo:'', mode:'CASH', isRenew: false, isEditOnly: false });
@@ -444,7 +446,14 @@ const DynamoGymApp = () => {
   }, [employees, members, customers, transactions]);
 
   const reportData = useMemo(() => {
-    const tList = transactions;
+    const fromDate = new Date(reportFromDate);
+    fromDate.setHours(0, 0, 0, 0);
+    const toDate = new Date(reportToDate);
+    toDate.setHours(23, 59, 59, 999);
+    const tList = transactions.filter(t => {
+      const tDate = new Date(t.created_at);
+      return tDate >= fromDate && tDate <= toDate;
+    });
     const mRev = tList.filter(t => t.type === 'MEMBERSHIP').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
     const pRev = tList.filter(t => t.type === 'SALE').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
     const sal = tList.filter(t => ['SALARY_PAYMENT', 'ADVANCE'].includes(t.type)).reduce((s,t) => s + t.amount, 0);
@@ -465,7 +474,7 @@ const DynamoGymApp = () => {
       net: (mRev + pRev) - (sal + pur + exp),
       debtsOnOthers: dOnO
     };
-  }, [transactions, members, customers]);
+  }, [transactions, members, customers, reportFromDate, reportToDate]);
 
   // الصندوق اليومي - يعرض فقط معاملات اليوم الحالي + الرصيد الافتتاحي
   const cashBalance = useMemo(() => {
@@ -1535,8 +1544,28 @@ const DynamoGymApp = () => {
 
           {view === 'reports' && (
             <div className="row g-3 text-center">
-               <div className="col-12 bg-white p-4 rounded-4 shadow-sm mb-2 d-flex flex-wrap align-items-center justify-content-between border shadow-lg">
+               <div className="col-12 bg-white p-4 rounded-4 shadow-sm mb-2 d-flex flex-wrap align-items-center justify-content-between gap-3 border shadow-lg">
                   <h5 className="fw-800 mb-0">التقرير المالي المحاسبي</h5>
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <span className="fw-bold small">من:</span>
+                    <input type="date" className="form-control form-control-sm rounded-pill shadow-sm" style={{width: '150px'}} value={reportFromDate} onChange={e => setReportFromDate(e.target.value)} />
+                    <span className="fw-bold small">إلى:</span>
+                    <input type="date" className="form-control form-control-sm rounded-pill shadow-sm" style={{width: '150px'}} value={reportToDate} onChange={e => setReportToDate(e.target.value)} />
+                    <button className="btn btn-outline-secondary btn-sm rounded-pill px-3" onClick={() => {
+                      const today = new Date();
+                      setReportFromDate(new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]);
+                      setReportToDate(today.toISOString().split('T')[0]);
+                    }}>الشهر الحالي</button>
+                    <button className="btn btn-outline-secondary btn-sm rounded-pill px-3" onClick={() => {
+                      const today = new Date();
+                      setReportFromDate(new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0]);
+                      setReportToDate(today.toISOString().split('T')[0]);
+                    }}>السنة الحالية</button>
+                    <button className="btn btn-outline-secondary btn-sm rounded-pill px-3" onClick={() => {
+                      setReportFromDate('2020-01-01');
+                      setReportToDate(new Date().toISOString().split('T')[0]);
+                    }}>الكل</button>
+                  </div>
                </div>
                {reportData && (
                  <>
