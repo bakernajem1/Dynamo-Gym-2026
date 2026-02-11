@@ -278,6 +278,7 @@ const DynamoGymApp = () => {
   const [statementPerson, setStatementPerson] = useState<any | null>(null);
   const [employeeRecords, setEmployeeRecords] = useState<{employee: any, type: 'advances' | 'salaries'} | null>(null);
   const [supplierPayments, setSupplierPayments] = useState<any | null>(null);
+  const [clientPayments, setClientPayments] = useState<{person: any, type: 'member' | 'customer'} | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<{id: string, amount: string} | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<TransactionRecord | null>(null);
 
@@ -1675,7 +1676,7 @@ const DynamoGymApp = () => {
                         <h6 className="fw-800 text-primary mb-3"><i className="fas fa-users me-2"></i>ديون الأعضاء (لنا)</h6>
                         <div className="table-responsive" style={{maxHeight: '250px', overflowY: 'auto'}}>
                           <table className="table table-sm extra-small text-end mb-0">
-                            <thead className="table-light sticky-top"><tr><th>العضو</th><th>الدين الحالي</th><th>تعديل</th></tr></thead>
+                            <thead className="table-light sticky-top"><tr><th>العضو</th><th>الدين الحالي</th><th>تعديل</th><th>دفعات</th></tr></thead>
                             <tbody>
                               {members.map(m => (
                                 <tr key={m.id}>
@@ -1701,6 +1702,7 @@ const DynamoGymApp = () => {
                                       }} 
                                     />
                                   </td>
+                                  <td><button className="btn btn-xs btn-outline-primary rounded-pill px-2" onClick={()=>setClientPayments({person: m, type: 'member'})}><i className="fas fa-list"></i></button></td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1716,7 +1718,7 @@ const DynamoGymApp = () => {
                         <h6 className="fw-800 text-success mb-3"><i className="fas fa-hand-holding-usd me-2"></i>ديون العملاء (لنا)</h6>
                         <div className="table-responsive" style={{maxHeight: '250px', overflowY: 'auto'}}>
                           <table className="table table-sm extra-small text-end mb-0">
-                            <thead className="table-light sticky-top"><tr><th>العميل</th><th>الدين الحالي</th><th>تعديل</th></tr></thead>
+                            <thead className="table-light sticky-top"><tr><th>العميل</th><th>الدين الحالي</th><th>تعديل</th><th>دفعات</th></tr></thead>
                             <tbody>
                               {customers.map(c => (
                                 <tr key={c.id}>
@@ -1742,6 +1744,7 @@ const DynamoGymApp = () => {
                                       }} 
                                     />
                                   </td>
+                                  <td><button className="btn btn-xs btn-outline-success rounded-pill px-2" onClick={()=>setClientPayments({person: c, type: 'customer'})}><i className="fas fa-list"></i></button></td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2221,6 +2224,120 @@ const DynamoGymApp = () => {
                <div className="mt-2 p-3 bg-danger bg-opacity-10 rounded-4 text-center">
                  <div className="small text-muted mb-1 fw-bold">الدين المتبقي</div>
                  <h3 className="fw-800 mb-0 text-danger">{formatNum(supplierPayments.total_debt)} ₪</h3>
+               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Client Debt Payments Modal - سجل دفعات العملاء/الأعضاء */}
+        {clientPayments && (
+          <div className="modal-custom" onClick={()=>{setClientPayments(null); setEditingTransaction(null);}}>
+            <div className="card w-100 shadow-2xl border-0 bg-white rounded-5 p-4 border-top border-4 border-success shadow-lg" style={{maxWidth: '600px'}} onClick={e=>e.stopPropagation()}>
+               <div className="d-flex justify-content-between mb-4 align-items-center border-bottom pb-3">
+                  <div>
+                    <h5 className="fw-800 mb-1 text-success">
+                      <i className="fas fa-money-bill-wave me-2"></i>سجل الدفعات
+                    </h5>
+                    <small className="text-muted fw-bold">{clientPayments.type === 'member' ? clientPayments.person.name : clientPayments.person.full_name}</small>
+                  </div>
+                  <button className="btn-close shadow-sm rounded-circle p-2" onClick={()=>{setClientPayments(null); setEditingTransaction(null);}}></button>
+               </div>
+               <div className="table-responsive border rounded-4 overflow-hidden shadow-sm" style={{maxHeight: '400px'}}>
+                  <table className="table table-sm extra-small align-middle text-end table-hover mb-0">
+                    <thead className="table-success"><tr><th>التاريخ</th><th>البيان</th><th>المبلغ</th><th>إجراء</th></tr></thead>
+                    <tbody>
+                      {transactions
+                        .filter(t => {
+                          if (t.type !== 'DEBT_PAYMENT') return false;
+                          const idKey = clientPayments.type === 'member' ? 'member_id' : 'customer_id';
+                          return t.metadata?.[idKey] === clientPayments.person.id;
+                        })
+                        .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .map(t=>(
+                        <tr key={t.id}>
+                          <td className="text-muted">{new Date(t.created_at).toLocaleDateString('ar-EG')}</td>
+                          <td className="fw-bold">{t.label}</td>
+                          <td className="text-success fw-bold">
+                            {editingTransaction?.id === t.id ? (
+                              <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '100px'}}
+                                value={editingTransaction.amount}
+                                onChange={e => setEditingTransaction({...editingTransaction, amount: e.target.value})}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter' && supabase) {
+                                    const oldAmt = t.amount;
+                                    const newAmt = Number(editingTransaction.amount);
+                                    const diff = newAmt - oldAmt;
+                                    const table = clientPayments.type === 'member' ? 'members' : 'customers';
+                                    await supabase.from('transactions').update({amount: newAmt}).eq('id', t.id);
+                                    const { data } = await supabase.from(table).select('total_debt').eq('id', clientPayments.person.id).single();
+                                    await supabase.from(table).update({ total_debt: Math.max(0, (data?.total_debt || 0) - diff) }).eq('id', clientPayments.person.id);
+                                    setEditingTransaction(null);
+                                    await fetchData();
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <>{formatNum(t.amount)} ₪</>
+                            )}
+                          </td>
+                          <td>
+                            <div className="d-flex gap-1">
+                              {editingTransaction?.id === t.id ? (
+                                <>
+                                  <button className="btn btn-xs btn-success rounded-pill px-2" onClick={async ()=>{
+                                    if(!supabase) return;
+                                    const oldAmt = t.amount;
+                                    const newAmt = Number(editingTransaction.amount);
+                                    const diff = newAmt - oldAmt;
+                                    const table = clientPayments.type === 'member' ? 'members' : 'customers';
+                                    await supabase.from('transactions').update({amount: newAmt}).eq('id', t.id);
+                                    const { data } = await supabase.from(table).select('total_debt').eq('id', clientPayments.person.id).single();
+                                    await supabase.from(table).update({ total_debt: Math.max(0, (data?.total_debt || 0) - diff) }).eq('id', clientPayments.person.id);
+                                    setEditingTransaction(null);
+                                    await fetchData();
+                                  }}><i className="fas fa-check"></i></button>
+                                  <button className="btn btn-xs btn-secondary rounded-pill px-2" onClick={()=>setEditingTransaction(null)}><i className="fas fa-times"></i></button>
+                                </>
+                              ) : (
+                                <>
+                                  <button className="btn btn-xs btn-outline-primary rounded-pill px-2" onClick={()=>setEditingTransaction({id: t.id, amount: String(t.amount)})}><i className="fas fa-edit"></i></button>
+                                  <button className="btn btn-xs btn-outline-danger rounded-pill px-2" onClick={async ()=>{
+                                    if(!supabase) return;
+                                    if(confirm('هل تريد حذف هذه الدفعة؟ سيتم إعادة المبلغ لدين العميل.')) {
+                                      const table = clientPayments.type === 'member' ? 'members' : 'customers';
+                                      const { data } = await supabase.from(table).select('total_debt').eq('id', clientPayments.person.id).single();
+                                      await supabase.from(table).update({ total_debt: (data?.total_debt || 0) + t.amount }).eq('id', clientPayments.person.id);
+                                      await supabase.from('transactions').delete().eq('id', t.id);
+                                      await fetchData();
+                                    }
+                                  }}><i className="fas fa-trash"></i></button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {transactions.filter(t => {
+                    if (t.type !== 'DEBT_PAYMENT') return false;
+                    const idKey = clientPayments.type === 'member' ? 'member_id' : 'customer_id';
+                    return t.metadata?.[idKey] === clientPayments.person.id;
+                  }).length === 0 && (
+                    <p className="text-muted text-center py-4 mb-0">لا يوجد دفعات سابقة</p>
+                  )}
+               </div>
+               <div className="mt-4 p-3 bg-light rounded-4 text-center">
+                 <div className="small text-muted mb-1 fw-bold">إجمالي المحصّل</div>
+                 <h3 className="fw-800 mb-0 text-success">{formatNum(transactions.filter(t => {
+                    if (t.type !== 'DEBT_PAYMENT') return false;
+                    const idKey = clientPayments.type === 'member' ? 'member_id' : 'customer_id';
+                    return t.metadata?.[idKey] === clientPayments.person.id;
+                  }).reduce((s,t)=>s+t.amount, 0))} ₪</h3>
+               </div>
+               <div className="mt-2 p-3 bg-danger bg-opacity-10 rounded-4 text-center">
+                 <div className="small text-muted mb-1 fw-bold">الدين المتبقي</div>
+                 <h3 className="fw-800 mb-0 text-danger">{formatNum(clientPayments.person.total_debt)} ₪</h3>
                </div>
             </div>
           </div>
