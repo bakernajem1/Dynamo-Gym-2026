@@ -1324,6 +1324,11 @@ const DynamoGymApp = () => {
                             <td className="text-danger fw-800">{formatNum((c as any).total_debt || Math.abs(getEmployeeBalance(c.id)))} ₪</td>
                             <td><div className="d-flex gap-1">
                                <button className="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm" onClick={()=>setRepayingPerson({...c, type: 'customer'})}>تسديد</button>
+                               <button className="btn btn-sm btn-outline-warning rounded-pill px-2 shadow-sm" onClick={()=>{
+                                 const pType = (c as any).full_name ? 'customer' : (c as any).salary ? 'employee' : 'member';
+                                 if (pType === 'employee') return;
+                                 setClientPayments({person: c, type: pType as 'member' | 'customer'});
+                               }}>دفعات</button>
                                <button className="btn btn-sm btn-outline-dark rounded-pill px-3 shadow-sm" onClick={()=>setStatementPerson({...c, type: 'customer'})}>كشف</button>
                                <button className="btn btn-sm btn-outline-primary rounded-pill shadow-sm" onClick={async()=>{
                                  const tableName = (c as any).full_name ? 'customers' : (c as any).salary ? 'employees' : 'members';
