@@ -277,6 +277,7 @@ const DynamoGymApp = () => {
   const [repayingPerson, setRepayingPerson] = useState<any | null>(null);
   const [statementPerson, setStatementPerson] = useState<any | null>(null);
   const [employeeRecords, setEmployeeRecords] = useState<{employee: any, type: 'advances' | 'salaries'} | null>(null);
+  const [supplierPayments, setSupplierPayments] = useState<any | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<{id: string, amount: string} | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<TransactionRecord | null>(null);
 
@@ -1910,6 +1911,7 @@ const DynamoGymApp = () => {
                         <tbody>{suppliers.map(s=>(<tr key={s.id}><td className="fw-bold">{s.name}</td><td className="text-danger fw-800">{formatNum(s.total_debt)} ₪</td><td><a href={getWhatsAppLink(s.phone)} className="text-success fs-5"><i className="fab fa-whatsapp"></i></a></td><td><div className="d-flex gap-1">
                            <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={()=>setSupplierForm({id:s.id, name:s.name, phone:s.phone, category:s.category})}><i className="fas fa-edit"></i></button>
                            <button className="btn btn-xs btn-success px-3 fw-bold rounded-pill shadow-sm" onClick={()=>setRepayingPerson({...s, type:'supplier'})}>تسديد</button>
+                           <button className="btn btn-xs btn-outline-warning rounded-pill px-2 shadow-sm" onClick={()=>setSupplierPayments(s)}>دفعات</button>
                            <button className="btn btn-xs btn-outline-dark rounded-pill px-3 shadow-sm" onClick={()=>setStatementPerson({...s, type:'supplier'})}>كشف</button>
                         </div></td></tr>))}</tbody>
                       </table>
@@ -2120,6 +2122,105 @@ const DynamoGymApp = () => {
                <div className="d-flex gap-2 mt-4 d-print-none">
                  <button className="btn btn-dark flex-grow-1 rounded-pill py-3 fw-bold shadow-lg" onClick={()=>printStatement(statementPerson, transactions, clubLogo, getEmployeeBalance)}>طباعة <i className="fas fa-print ms-2"></i></button>
                  <a href={getWhatsAppLink((statementPerson as any).phone_number || (statementPerson as any).phone)} className="btn btn-success rounded-pill px-5 shadow-lg d-flex align-items-center transition-all hover-scale"><i className="fab fa-whatsapp fa-lg"></i></a>
+               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Supplier Payments Modal - سجل دفعات المورد */}
+        {supplierPayments && (
+          <div className="modal-custom" onClick={()=>{setSupplierPayments(null); setEditingTransaction(null);}}>
+            <div className="card w-100 shadow-2xl border-0 bg-white rounded-5 p-4 border-top border-4 border-warning shadow-lg" style={{maxWidth: '600px'}} onClick={e=>e.stopPropagation()}>
+               <div className="d-flex justify-content-between mb-4 align-items-center border-bottom pb-3">
+                  <div>
+                    <h5 className="fw-800 mb-1 text-warning">
+                      <i className="fas fa-hand-holding-usd me-2"></i>سجل الدفعات
+                    </h5>
+                    <small className="text-muted fw-bold">{supplierPayments.name}</small>
+                  </div>
+                  <button className="btn-close shadow-sm rounded-circle p-2" onClick={()=>{setSupplierPayments(null); setEditingTransaction(null);}}></button>
+               </div>
+               <div className="table-responsive border rounded-4 overflow-hidden shadow-sm" style={{maxHeight: '400px'}}>
+                  <table className="table table-sm extra-small align-middle text-end table-hover mb-0">
+                    <thead className="table-warning"><tr><th>التاريخ</th><th>البيان</th><th>المبلغ</th><th>إجراء</th></tr></thead>
+                    <tbody>
+                      {transactions
+                        .filter(t => t.metadata?.supplier_id === supplierPayments.id && t.type === 'SUPPLIER_PAYMENT')
+                        .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .map(t=>(
+                        <tr key={t.id}>
+                          <td className="text-muted">{new Date(t.created_at).toLocaleDateString('ar-EG')}</td>
+                          <td className="fw-bold">{t.label}</td>
+                          <td className="text-success fw-bold">
+                            {editingTransaction?.id === t.id ? (
+                              <input type="number" step="0.01" className="form-control form-control-sm rounded-pill text-center" style={{width: '100px'}}
+                                value={editingTransaction.amount}
+                                onChange={e => setEditingTransaction({...editingTransaction, amount: e.target.value})}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter' && supabase) {
+                                    const oldAmt = t.amount;
+                                    const newAmt = Number(editingTransaction.amount);
+                                    const diff = newAmt - oldAmt;
+                                    await supabase.from('transactions').update({amount: newAmt}).eq('id', t.id);
+                                    const { data } = await supabase.from('suppliers').select('total_debt').eq('id', supplierPayments.id).single();
+                                    await supabase.from('suppliers').update({ total_debt: Math.max(0, (data?.total_debt || 0) - diff) }).eq('id', supplierPayments.id);
+                                    setEditingTransaction(null);
+                                    await fetchData();
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <>{formatNum(t.amount)} ₪</>
+                            )}
+                          </td>
+                          <td>
+                            <div className="d-flex gap-1">
+                              {editingTransaction?.id === t.id ? (
+                                <>
+                                  <button className="btn btn-xs btn-success rounded-pill px-2" onClick={async ()=>{
+                                    if(!supabase) return;
+                                    const oldAmt = t.amount;
+                                    const newAmt = Number(editingTransaction.amount);
+                                    const diff = newAmt - oldAmt;
+                                    await supabase.from('transactions').update({amount: newAmt}).eq('id', t.id);
+                                    const { data } = await supabase.from('suppliers').select('total_debt').eq('id', supplierPayments.id).single();
+                                    await supabase.from('suppliers').update({ total_debt: Math.max(0, (data?.total_debt || 0) - diff) }).eq('id', supplierPayments.id);
+                                    setEditingTransaction(null);
+                                    await fetchData();
+                                  }}><i className="fas fa-check"></i></button>
+                                  <button className="btn btn-xs btn-secondary rounded-pill px-2" onClick={()=>setEditingTransaction(null)}><i className="fas fa-times"></i></button>
+                                </>
+                              ) : (
+                                <>
+                                  <button className="btn btn-xs btn-outline-primary rounded-pill px-2" onClick={()=>setEditingTransaction({id: t.id, amount: String(t.amount)})}><i className="fas fa-edit"></i></button>
+                                  <button className="btn btn-xs btn-outline-danger rounded-pill px-2" onClick={async ()=>{
+                                    if(!supabase) return;
+                                    if(confirm('هل تريد حذف هذه الدفعة؟ سيتم إعادة المبلغ لدين المورد.')) {
+                                      const { data } = await supabase.from('suppliers').select('total_debt').eq('id', supplierPayments.id).single();
+                                      await supabase.from('suppliers').update({ total_debt: (data?.total_debt || 0) + t.amount }).eq('id', supplierPayments.id);
+                                      await supabase.from('transactions').delete().eq('id', t.id);
+                                      await fetchData();
+                                    }
+                                  }}><i className="fas fa-trash"></i></button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {transactions.filter(t => t.metadata?.supplier_id === supplierPayments.id && t.type === 'SUPPLIER_PAYMENT').length === 0 && (
+                    <p className="text-muted text-center py-4 mb-0">لا يوجد دفعات سابقة</p>
+                  )}
+               </div>
+               <div className="mt-4 p-3 bg-light rounded-4 text-center">
+                 <div className="small text-muted mb-1 fw-bold">إجمالي المدفوع</div>
+                 <h3 className="fw-800 mb-0 text-success">{formatNum(transactions.filter(t => t.metadata?.supplier_id === supplierPayments.id && t.type === 'SUPPLIER_PAYMENT').reduce((s,t)=>s+t.amount, 0))} ₪</h3>
+               </div>
+               <div className="mt-2 p-3 bg-danger bg-opacity-10 rounded-4 text-center">
+                 <div className="small text-muted mb-1 fw-bold">الدين المتبقي</div>
+                 <h3 className="fw-800 mb-0 text-danger">{formatNum(supplierPayments.total_debt)} ₪</h3>
                </div>
             </div>
           </div>
