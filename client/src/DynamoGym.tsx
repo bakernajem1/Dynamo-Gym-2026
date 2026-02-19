@@ -911,10 +911,11 @@ const DynamoGymApp = () => {
               <div className="col-lg-8">
                 <div className="card p-3 shadow-sm border-0 bg-white shadow-lg h-100">
                   <h6 className="fw-800 border-bottom pb-2">الأصناف (الكميات تدخل عبر المشتريات فقط)</h6>
+                  <input className="form-control rounded-pill shadow-sm mb-3 px-4 border extra-small" placeholder="بحث عن صنف..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
                   <div className="table-responsive">
                     <table className="table table-hover extra-small align-middle text-end mb-0">
                       <thead><tr className="table-light"><th>الاسم</th><th>سعر البيع</th><th>الكمية</th><th>إجراء</th></tr></thead>
-                      <tbody>{inventory.map(p=>(
+                      <tbody>{inventory.filter(p=>p.name.includes(searchTerm)).map(p=>(
                         <tr key={p.id}>
                           <td className="fw-bold">{p.name}</td>
                           <td className="fw-bold text-success">{formatNum(p.sale_price)} ₪</td>
@@ -943,8 +944,9 @@ const DynamoGymApp = () => {
                   </div>
                   <div className="card p-3 shadow-sm bg-white mb-3 shadow-lg">
                     <h6 className="fw-800 mb-2 small text-muted">اختر الأصناف</h6>
+                    <input className="form-control rounded-pill shadow-sm mb-3 px-4 border extra-small" placeholder="بحث عن صنف..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
                     <div className="row g-2 overflow-auto mb-3" style={{maxHeight: '30vh'}}>
-                      {inventory.map(p=>(
+                      {inventory.filter(p=>p.name.includes(searchTerm)).map(p=>(
                         <div className="col-6 col-md-3" key={p.id}>
                           <div className="card p-2 text-center pos-item border-0 bg-light shadow-sm h-100" onClick={()=>{
                             const ex = purchaseCart.find(i=>i.product.id===p.id);
