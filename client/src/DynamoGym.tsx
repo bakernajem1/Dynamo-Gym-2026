@@ -37,10 +37,10 @@ const DEMO_MEMBERS: Member[] = [
 ];
 
 const DEMO_PRODUCTS: Product[] = [
-  { id: 'prod-1', name: 'بروتين واي', quantity: 25, sale_price: 150, barcode: '6281100000001' },
-  { id: 'prod-2', name: 'كرياتين', quantity: 30, sale_price: 80, barcode: '6281100000002' },
-  { id: 'prod-3', name: 'شيكر', quantity: 50, sale_price: 25, barcode: '6281100000003' },
-  { id: 'prod-4', name: 'قفازات تدريب', quantity: 20, sale_price: 45, barcode: '6281100000004' }
+  { id: 'prod-1', name: 'بروتين واي', quantity: 25, sale_price: 150 },
+  { id: 'prod-2', name: 'كرياتين', quantity: 30, sale_price: 80 },
+  { id: 'prod-3', name: 'شيكر', quantity: 50, sale_price: 25 },
+  { id: 'prod-4', name: 'قفازات تدريب', quantity: 20, sale_price: 45 }
 ];
 
 const DEMO_EMPLOYEES: Employee[] = [
@@ -210,7 +210,7 @@ interface Customer {
 }
 
 interface Product {
-  id: string; name: string; quantity: number; sale_price: number; barcode?: string; cost_price?: number;
+  id: string; name: string; quantity: number; sale_price: number; cost_price?: number;
 }
 
 interface Supplier {
@@ -258,7 +258,7 @@ const DynamoGymApp = () => {
 
   // نماذج الإدخال
   const [memberForm, setMemberForm] = useState({ id:'', name:'', phone:'', plan:'شهر واحد', price:'130', discount:'0', paid:'0', start:new Date().toISOString().split('T')[0], weight:'', height:'', photo:'', mode:'CASH', isRenew: false, isEditOnly: false });
-  const [productForm, setProductForm] = useState({ id:'', name:'', price:'0', barcode:'' });
+  const [productForm, setProductForm] = useState({ id:'', name:'', price:'0' });
 
 
   const [employeeForm, setEmployeeForm] = useState({ id:'', name:'', phone:'', job:'مدرب لياقة', salary:'0' });
@@ -318,14 +318,7 @@ const DynamoGymApp = () => {
       if(c.data) setCustomers(c.data);
       if(i.data) {
         setInventory(i.data);
-        // Debug: show products with barcodes
-        const withBarcodes = i.data.filter((p: Product) => p.barcode);
-        console.log('📦 Products loaded:', i.data.length, '| With barcodes:', withBarcodes.length);
-        if(withBarcodes.length > 0) {
-          console.table(withBarcodes.map((p: Product) => ({name: p.name, barcode: p.barcode})));
-        } else {
-          console.warn('⚠️ No products have barcodes! Make sure the barcode column exists in Supabase.');
-        }
+        console.log('📦 Products loaded:', i.data.length);
       }
       if(s.data) setSuppliers(s.data);
       if(e.data) setEmployees(e.data);
@@ -793,32 +786,6 @@ const DynamoGymApp = () => {
                   <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                     <h5 className="fw-800 text-dark mb-0">نقطة البيع (POS)</h5>
                     <div className="d-flex gap-2 align-items-center flex-wrap">
-                      <div className="input-group" style={{maxWidth: '200px'}}>
-                        <input 
-                          type="text" 
-                          className="form-control form-control-sm rounded-start-pill" 
-                          placeholder="أدخل الباركود..."
-                          onKeyDown={(e) => {
-                            if(e.key === 'Enter') {
-                              const input = e.target as HTMLInputElement;
-                              if(input.value.trim()) {
-                                const bc = input.value.trim();
-                                const prod = inventory.find(p => p.barcode && p.barcode.trim() === bc);
-                                if (prod) {
-                                  if (prod.quantity <= 0) { alert(`${prod.name} - الكمية صفر!`); } else {
-                                    const ex = posCart.find(i => i.product.id === prod.id);
-                                    if (ex) setPosCart(posCart.map(i => i.product.id === prod.id ? {...i, qty: i.qty+1} : i));
-                                    else setPosCart([...posCart, {product: prod, qty: 1}]);
-                                    showToast(`تمت الإضافة: ${prod.name}`);
-                                  }
-                                } else { alert(`الباركود: ${bc}\nغير موجود! أضف الصنف من المخزون أولاً`); }
-                                input.value = '';
-                              }
-                            }
-                          }}
-                        />
-                        <span className="input-group-text bg-dark text-white rounded-end-pill"><i className="fas fa-barcode"></i></span>
-                      </div>
                     </div>
                   </div>
                   <div className="card p-3 shadow-sm border-0 bg-white mb-3">
@@ -919,7 +886,7 @@ const DynamoGymApp = () => {
                   </div>
                   <form onSubmit={async(e)=>{
                     e.preventDefault(); if(!requireSupabase()) return; setLoading(true); try{ 
-                      const payload = { name: productForm.name, sale_price: Number(productForm.price), barcode: productForm.barcode || null };
+                      const payload = { name: productForm.name, sale_price: Number(productForm.price) };
                       console.log('💾 Saving product:', payload);
                       let result;
                       if(productForm.id) {
@@ -929,26 +896,15 @@ const DynamoGymApp = () => {
                       }
                       console.log('💾 Save result:', result);
                       if(result.error) throw result.error;
-                      // تحقق من حفظ الباركود
-                      if(payload.barcode && result.data?.[0]?.barcode !== payload.barcode) {
-                        console.error('⚠️ Barcode was NOT saved! Column might not exist in Supabase.');
-                        alert('⚠️ تحذير: الباركود لم يُحفظ!\n\nتأكد من إضافة عمود barcode في Supabase:\nALTER TABLE products ADD COLUMN barcode TEXT;');
-                      }
-                      setProductForm({id:'', name:'', price:'0', barcode:''}); await fetchData(); 
+                      setProductForm({id:'', name:'', price:'0'}); await fetchData(); 
                       showToast('تم الحفظ');
                     }catch(err:any){alert('خطأ: ' + err.message);}finally{setLoading(false);}
                   }} className="row g-2">
-                    <div className="col-12">
-                      <div className="input-group">
-                        <input className="form-control rounded-start-pill shadow-sm" placeholder="الباركود (اختياري)" value={productForm.barcode} onChange={e=>setProductForm({...productForm, barcode:e.target.value})} />
-                        <span className="input-group-text bg-light"><i className="fas fa-barcode"></i></span>
-                      </div>
-                    </div>
                     <input className="form-control rounded-pill shadow-sm" onFocus={handleAutoSelect} placeholder="اسم الصنف" value={productForm.name} onChange={e=>setProductForm({...productForm, name:e.target.value})} required />
                     <div className="small text-muted mb-1 ms-2">سعر البيع</div>
                     <input type="number" step="0.01" className="form-control rounded-pill shadow-sm text-center" onFocus={handleAutoSelect} placeholder="سعر البيع" value={productForm.price} onChange={e=>setProductForm({...productForm, price:e.target.value})} required />
                     <button className="btn btn-info w-100 rounded-pill py-2 fw-bold text-white mt-2 shadow">حفظ ✅</button>
-                    {productForm.id && <button type="button" className="btn btn-link text-muted extra-small" onClick={()=>setProductForm({id:'', name:'', price:'0', barcode:''})}>إلغاء</button>}
+                    {productForm.id && <button type="button" className="btn btn-link text-muted extra-small" onClick={()=>setProductForm({id:'', name:'', price:'0'})}>إلغاء</button>}
                   </form>
                 </div>
               </div>
@@ -957,15 +913,14 @@ const DynamoGymApp = () => {
                   <h6 className="fw-800 border-bottom pb-2">الأصناف (الكميات تدخل عبر المشتريات فقط)</h6>
                   <div className="table-responsive">
                     <table className="table table-hover extra-small align-middle text-end mb-0">
-                      <thead><tr className="table-light"><th>الباركود</th><th>الاسم</th><th>سعر البيع</th><th>الكمية</th><th>إجراء</th></tr></thead>
+                      <thead><tr className="table-light"><th>الاسم</th><th>سعر البيع</th><th>الكمية</th><th>إجراء</th></tr></thead>
                       <tbody>{inventory.map(p=>(
                         <tr key={p.id}>
-                          <td className="text-muted small">{p.barcode || '-'}</td>
                           <td className="fw-bold">{p.name}</td>
                           <td className="fw-bold text-success">{formatNum(p.sale_price)} ₪</td>
                           <td className={`fw-bold ${p.quantity <= 0 ? 'text-danger' : 'text-primary'}`}>{p.quantity}</td>
                           <td><div className="d-flex gap-1">
-                            <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={()=>setProductForm({id:p.id, name:p.name, price:String(p.sale_price), barcode: p.barcode || ''})}><i className="fas fa-edit"></i></button>
+                            <button className="btn btn-xs btn-outline-primary rounded-pill shadow-sm" onClick={()=>setProductForm({id:p.id, name:p.name, price:String(p.sale_price)})}><i className="fas fa-edit"></i></button>
                             <button className="btn btn-xs btn-outline-danger rounded-pill shadow-sm" onClick={async()=>{
                             if(!requireSupabase()) return; if(confirm('حذف الصنف؟')){ await supabase!.from('products').delete().eq('id', p.id); await fetchData(); }
                           }}><i className="fas fa-trash"></i></button></div></td>
@@ -984,30 +939,6 @@ const DynamoGymApp = () => {
                   <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                     <h5 className="fw-800 text-dark mb-0">إدارة المشتريات</h5>
                     <div className="d-flex gap-2 align-items-center flex-wrap">
-                      <div className="input-group" style={{maxWidth: '200px'}}>
-                        <input 
-                          type="text" 
-                          className="form-control form-control-sm rounded-start-pill" 
-                          placeholder="أدخل الباركود..."
-                          onKeyDown={(e) => {
-                            if(e.key === 'Enter') {
-                              const input = e.target as HTMLInputElement;
-                              if(input.value.trim()) {
-                                const bc = input.value.trim();
-                                const prod = inventory.find(p => p.barcode && p.barcode.trim() === bc);
-                                if (prod) {
-                                  const ex = purchaseCart.find(i => i.product.id === prod.id);
-                                  if (ex) setPurchaseCart(purchaseCart.map(i => i.product.id === prod.id ? {...i, qty: i.qty+1} : i));
-                                  else setPurchaseCart([...purchaseCart, {product: prod, qty: 1, cost: 0}]);
-                                  showToast(`تمت الإضافة: ${prod.name}`);
-                                } else { alert(`الباركود: ${bc}\nغير موجود! أضف الصنف من المخزون أولاً`); }
-                                input.value = '';
-                              }
-                            }
-                          }}
-                        />
-                        <span className="input-group-text bg-dark text-white rounded-end-pill"><i className="fas fa-barcode"></i></span>
-                      </div>
                     </div>
                   </div>
                   <div className="card p-3 shadow-sm bg-white mb-3 shadow-lg">
