@@ -281,6 +281,7 @@ const DynamoGymApp = () => {
   const [clientPayments, setClientPayments] = useState<{person: any, type: 'member' | 'customer'} | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<{id: string, amount: string} | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<TransactionRecord | null>(null);
+  const [writeOffMember, setWriteOffMember] = useState<Member | null>(null);
 
   const navigateTo = (v: string) => { 
     setView(v); 
@@ -366,6 +367,7 @@ const DynamoGymApp = () => {
     });
     const mRev = tList.filter(t => t.type === 'MEMBERSHIP').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
     const pRev = tList.filter(t => t.type === 'SALE').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
+    const writeOffs = tList.filter(t => t.type === 'DEBT_WRITEOFF').reduce((s,t) => s + t.amount, 0);
     const sal = tList.filter(t => ['SALARY_PAYMENT', 'ADVANCE'].includes(t.type)).reduce((s,t) => s + t.amount, 0);
     const pur = tList.filter(t => t.type === 'PURCHASE').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
     const exp = tList.filter(t => t.type === 'EXPENSE').reduce((s,t) => s + t.amount, 0);
@@ -373,15 +375,16 @@ const DynamoGymApp = () => {
     const dOnO = members.reduce((s, m) => s + (m.total_debt || 0), 0) + customers.reduce((s, c) => s + (c.total_debt || 0), 0);
     
     return {
-      membershipRev: mRev,
+      membershipRev: mRev - writeOffs,
       posRev: pRev,
       purchases: pur,
       salaries: sal,
       expenses: exp,
       personalWithdrawals,
-      totalIncome: mRev + pRev,
+      writeOffs,
+      totalIncome: mRev + pRev - writeOffs,
       totalOutcome: sal + pur + exp,
-      net: (mRev + pRev) - (sal + pur + exp),
+      net: (mRev + pRev - writeOffs) - (sal + pur + exp),
       debtsOnOthers: dOnO
     };
   }, [transactions, members, customers, reportFromDate, reportToDate]);
@@ -709,10 +712,16 @@ const DynamoGymApp = () => {
                           setMemberForm({ id:m.id, name:m.name, phone:m.phone, plan:m.subscription_plan, price:String(m.plan_price), discount:String(m.discount), paid:'0', start:m.start_date, weight:String(m.weight||''), height:String(m.height||''), photo:m.photo||'', mode:'CASH', isRenew: false, isEditOnly: true });
                           navigateTo('register');
                         }}>تعديل</button>
+                        {m.total_debt > 0 && (
+                          <button className="btn btn-xs btn-outline-warning extra-small px-2 rounded-pill" title="شطب الدين" onClick={(e)=>{
+                            e.stopPropagation();
+                            setWriteOffMember(m);
+                          }}><i className="fas fa-eraser"></i></button>
+                        )}
                         <button className="btn btn-xs btn-outline-danger extra-small px-2 rounded-pill" onClick={async(e)=>{
                           e.stopPropagation();
                           if(!requireSupabase()) return;
-                          if(m.total_debt > 0) return alert('لا يمكن حذف العضو لوجود دين مستحق!');
+                          if(m.total_debt > 0) return alert('لا يمكن حذف العضو لوجود دين مستحق! استخدم زر الشطب أولاً.');
                           if(confirm('هل أنت متأكد من الحذف؟')){ await supabase!.from('members').delete().eq('id', m.id); await fetchData(); }
                         }}><i className="fas fa-trash"></i></button>
                       </div>
@@ -1434,6 +1443,9 @@ const DynamoGymApp = () => {
                     <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-primary text-white shadow-lg"><small className="fw-bold opacity-75">إيرادات الاشتراكات (+دين)</small><h3 className="fw-800">{formatNum(reportData.membershipRev)} ₪</h3></div></div>
                     <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-info text-white shadow-lg"><small className="fw-bold opacity-75">إيرادات المبيعات (+دين)</small><h3 className="fw-800">{formatNum(reportData.posRev)} ₪</h3></div></div>
                     <div className="col-md-4 col-12"><div className="card p-3 border-0 bg-success text-white shadow-lg"><small className="fw-bold opacity-75">الإيرادات الكلية</small><h3 className="fw-800">{formatNum(reportData.totalIncome)} ₪</h3></div></div>
+                    {reportData.writeOffs > 0 && (
+                      <div className="col-12"><div className="card p-3 border-0 bg-warning bg-opacity-10 border-top border-4 border-warning shadow-sm d-flex flex-row justify-content-between align-items-center"><div><small className="fw-bold text-warning"><i className="fas fa-eraser me-1"></i>ديون مشطوبة (محذوفة من الإيرادات)</small></div><h5 className="fw-800 text-warning mb-0">- {formatNum(reportData.writeOffs)} ₪</h5></div></div>
+                    )}
                     <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-danger shadow-sm border-top border-4 border-danger h-100"><small className="fw-bold text-muted">الرواتب والمصروفات</small><h3>{formatNum(reportData.salaries + reportData.expenses)} ₪</h3></div></div>
                     <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-warning shadow-sm border-top border-4 border-warning h-100"><small className="fw-bold text-muted">المشتريات</small><h3>{formatNum(reportData.purchases)} ₪</h3></div></div>
                     <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-dark shadow-sm border-top border-4 border-dark h-100"><small className="fw-bold text-muted">مسحوبات شخصية</small><h3>{formatNum(reportData.personalWithdrawals)} ₪</h3></div></div>
@@ -1907,6 +1919,50 @@ const DynamoGymApp = () => {
                 <input name="amt" type="number" step="0.01" onFocus={handleAutoSelect} defaultValue={Math.abs((repayingPerson as any).total_debt || getEmployeeBalance(repayingPerson.id))} className="form-control mb-3 rounded-pill text-center fs-3 fw-bold border-success shadow-sm" required />
                 <button type="submit" className="btn btn-success w-100 fw-bold rounded-pill py-3 shadow-lg">تأكيد السداد ✅</button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {writeOffMember && (
+          <div className="modal-custom" onClick={()=>setWriteOffMember(null)}>
+            <div className="card p-4 shadow-2xl bg-white rounded-4 border-0 border-top border-4 border-warning shadow-lg" style={{maxWidth: '420px', width: '90%'}} onClick={e=>e.stopPropagation()}>
+              <div className="text-center mb-3">
+                <div className="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style={{width:60, height:60}}>
+                  <i className="fas fa-eraser fa-2x text-warning"></i>
+                </div>
+                <h5 className="fw-800 text-warning mb-0">شطب دين</h5>
+                <p className="text-muted extra-small mt-1 mb-0">{writeOffMember.name}</p>
+              </div>
+              <div className="bg-danger bg-opacity-10 rounded-3 p-3 mb-3 text-center">
+                <div className="extra-small text-muted mb-1">مبلغ الدين المراد شطبه</div>
+                <div className="fs-3 fw-800 text-danger">{formatNum(writeOffMember.total_debt)} ₪</div>
+              </div>
+              <div className="bg-light rounded-3 p-2 mb-3 extra-small text-muted text-center">
+                ⚠️ سيتم إلغاء الإيراد المسجل وشطب الدين نهائياً.<br/>هذا الإجراء لا يمكن التراجع عنه.
+              </div>
+              <div className="d-flex gap-2">
+                <button className="btn btn-light flex-grow-1 rounded-pill fw-bold" onClick={()=>setWriteOffMember(null)}>إلغاء</button>
+                <button className="btn btn-warning flex-grow-1 rounded-pill fw-bold" onClick={async()=>{
+                  if(!requireSupabase()) return;
+                  if(!confirm(`تأكيد شطب دين ${formatNum(writeOffMember.total_debt)} ₪ على ${writeOffMember.name}؟`)) return;
+                  setLoading(true);
+                  try {
+                    const debtAmt = writeOffMember.total_debt;
+                    // 1. تصفير الدين على العضو
+                    await supabase!.from('members').update({ total_debt: 0 }).eq('id', writeOffMember.id);
+                    // 2. تسجيل معاملة شطب (DEBT_WRITEOFF) تُلغي الإيراد من التقارير
+                    await supabase!.from('transactions').insert({
+                      type: 'DEBT_WRITEOFF',
+                      amount: debtAmt,
+                      label: `شطب دين: ${writeOffMember.name}`,
+                      metadata: { member_id: writeOffMember.id, reason: 'إلغاء إيراد - عضو انسحب' }
+                    });
+                    setWriteOffMember(null);
+                    fetchData();
+                    alert(`✅ تم شطب دين ${formatNum(debtAmt)} ₪ على ${writeOffMember.name} بنجاح`);
+                  } catch(err:any){ alert(err.message); } finally{ setLoading(false); }
+                }}>تأكيد الشطب ✅</button>
+              </div>
             </div>
           </div>
         )}
