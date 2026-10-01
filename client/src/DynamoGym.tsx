@@ -65,6 +65,10 @@ const DEMO_TRANSACTIONS: TransactionRecord[] = [
 const getWhatsAppLink = (phone: string) => `https://wa.me/${phone?.replace(/[^0-9]/g, '')}`;
 const handleAutoSelect = (e: any) => e.target.select();
 const formatNum = (num: number) => Number(num || 0).toFixed(2);
+// تاريخ محلي بصيغة YYYY-MM-DD (toISOString يحوّل لـ UTC ويُزحزح اليوم)
+const toLocalISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const todayLocal = () => toLocalISO(new Date());
+const monthStartLocal = () => { const n = new Date(); return toLocalISO(new Date(n.getFullYear(), n.getMonth(), 1)); };
 
 const printStatement = (person: any, transactions: any[], clubLogo: string | null, getEmployeeBalance: (id: number) => number) => {
   const isEmployee = !!person.salary;
@@ -222,7 +226,7 @@ interface Employee {
 }
 
 interface TransactionRecord {
-  id: string; type: 'MEMBERSHIP' | 'PURCHASE' | 'SALE' | 'EXPENSE' | 'DEBT_PAYMENT' | 'SUPPLIER_PAYMENT' | 'ADVANCE' | 'SALARY_PAYMENT' | 'PERSONAL_WITHDRAWAL' | 'OPENING_BALANCE';
+  id: string; type: 'MEMBERSHIP' | 'PURCHASE' | 'SALE' | 'EXPENSE' | 'DEBT_PAYMENT' | 'SUPPLIER_PAYMENT' | 'ADVANCE' | 'SALARY_PAYMENT' | 'PERSONAL_WITHDRAWAL' | 'OPENING_BALANCE' | 'DEBT_WRITEOFF';
   amount: number; discount: number; label: string; metadata: any; created_at: string;
 }
 
@@ -253,8 +257,8 @@ const DynamoGymApp = () => {
   // الفلاتر
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [reportFromDate, setReportFromDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
-  const [reportToDate, setReportToDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportFromDate, setReportFromDate] = useState(monthStartLocal());
+  const [reportToDate, setReportToDate] = useState(todayLocal());
 
   // نماذج الإدخال
   const [memberForm, setMemberForm] = useState({ id:'', name:'', phone:'', plan:'شهر واحد', price:'130', discount:'0', paid:'0', start:new Date().toISOString().split('T')[0], weight:'', height:'', photo:'', mode:'CASH', isRenew: false, isEditOnly: false });
@@ -356,17 +360,22 @@ const DynamoGymApp = () => {
     return emp.salary - advances - paidSalary - linkedDebts;
   }, [employees, members, customers, transactions]);
 
-  const reportData = useMemo(() => {
-    const fromDate = new Date(reportFromDate);
-    fromDate.setHours(0, 0, 0, 0);
-    const toDate = new Date(reportToDate);
-    toDate.setHours(23, 59, 59, 999);
+  const calcReport = useCallback((fromStr: string, toStr: string) => {
+    const fromDate = new Date(fromStr + 'T00:00:00');
+    const toDate = new Date(toStr + 'T23:59:59.999');
     const tList = transactions.filter(t => {
       const tDate = new Date(t.created_at);
       return tDate >= fromDate && tDate <= toDate;
     });
     const mRev = tList.filter(t => t.type === 'MEMBERSHIP').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
     const pRev = tList.filter(t => t.type === 'SALE').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
+    const sumDebt = (type: string) => tList.filter(t => t.type === type).reduce((s,t) => s + (t.metadata?.debt_added || 0), 0);
+    const sumPaid = (type: string) => tList.filter(t => t.type === type).reduce((s,t) => s + t.amount, 0);
+    const membershipPaid = sumPaid('MEMBERSHIP');
+    const membershipDeferred = sumDebt('MEMBERSHIP');
+    const posPaid = sumPaid('SALE');
+    const posDeferred = sumDebt('SALE');
+    const debtPayments = sumPaid('DEBT_PAYMENT');
     const writeOffs = tList.filter(t => t.type === 'DEBT_WRITEOFF').reduce((s,t) => s + t.amount, 0);
     const sal = tList.filter(t => ['SALARY_PAYMENT', 'ADVANCE'].includes(t.type)).reduce((s,t) => s + t.amount, 0);
     const pur = tList.filter(t => t.type === 'PURCHASE').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
@@ -376,6 +385,11 @@ const DynamoGymApp = () => {
     
     return {
       membershipRev: mRev - writeOffs,
+      membershipPaid,
+      membershipDeferred,
+      posPaid,
+      posDeferred,
+      debtPayments,
       posRev: pRev,
       purchases: pur,
       salaries: sal,
@@ -387,12 +401,17 @@ const DynamoGymApp = () => {
       net: (mRev + pRev - writeOffs) - (sal + pur + exp),
       debtsOnOthers: dOnO
     };
-  }, [transactions, members, customers, reportFromDate, reportToDate]);
+  }, [transactions, members, customers]);
+
+  const reportData = useMemo(() => calcReport(reportFromDate, reportToDate), [calcReport, reportFromDate, reportToDate]);
+  // الصفحة الرئيسية: أرقام اليوم والشهر الحالي بشكل منفصل وواضح
+  const todayReport = useMemo(() => calcReport(todayLocal(), todayLocal()), [calcReport]);
+  const monthReport = useMemo(() => calcReport(monthStartLocal(), todayLocal()), [calcReport]);
 
   // الصندوق اليومي - يعرض فقط معاملات اليوم الحالي + الرصيد الافتتاحي
   const cashBalance = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayTransactions = transactions.filter(t => t.created_at.split('T')[0] === today);
+    const today = todayLocal();
+    const todayTransactions = transactions.filter(t => toLocalISO(new Date(t.created_at)) === today);
     // الرصيد الافتتاحي (يُحسب دائماً وليس فقط اليوم)
     const openingBalance = transactions.filter(t => t.type === 'OPENING_BALANCE').reduce((s, t) => s + t.amount, 0);
     
@@ -627,7 +646,8 @@ const DynamoGymApp = () => {
               <div className="col-md-3 col-6"><div className="card p-3 text-center border-0 shadow-sm border-top border-4 border-primary h-100"><small className="text-muted fw-bold">الأعضاء</small><h3 className="fw-800 text-primary">{members.filter(m=>m.status==='active').length}</h3></div></div>
               <div className="col-md-3 col-6"><div className="card p-3 text-center border-0 shadow-sm border-top border-4 border-danger h-100"><small className="text-muted fw-bold">ديون لنا</small><h3 className="fw-800 text-danger">{formatNum(reportData.debtsOnOthers)}</h3></div></div>
               <div className="col-md-3 col-6"><div className="card p-3 text-center border-0 shadow-sm border-top border-4 border-info h-100"><small className="text-muted fw-bold">الأصناف</small><h3 className="fw-800 text-info">{inventory.length}</h3></div></div>
-              <div className="col-md-3 col-6"><div className={`card p-3 text-center border-0 shadow-sm border-top border-4 h-100 ${reportData.net >= 0 ? 'border-success' : 'border-danger'}`}><small className="text-muted fw-bold">الربح الصافي</small><h3 className={`fw-800 ${reportData.net >= 0 ? 'text-success' : 'text-danger'}`}>{formatNum(reportData.net)}</h3></div></div>
+              <div className="col-md-3 col-6"><div className={`card p-3 text-center border-0 shadow-sm border-top border-4 h-100 ${todayReport.net >= 0 ? 'border-success' : 'border-danger'}`}><small className="text-muted fw-bold">صافي ربح اليوم</small><h3 className={`fw-800 ${todayReport.net >= 0 ? 'text-success' : 'text-danger'}`}>{formatNum(todayReport.net)}</h3><small className="text-muted extra-small">الإيرادات: {formatNum(todayReport.totalIncome)}</small></div></div>
+              <div className="col-md-3 col-6"><div className={`card p-3 text-center border-0 shadow-sm border-top border-4 h-100 ${monthReport.net >= 0 ? 'border-success' : 'border-danger'}`}><small className="text-muted fw-bold">صافي ربح هذا الشهر</small><h3 className={`fw-800 ${monthReport.net >= 0 ? 'text-success' : 'text-danger'}`}>{formatNum(monthReport.net)}</h3><small className="text-muted extra-small">الإيرادات: {formatNum(monthReport.totalIncome)}</small></div></div>
               
               <div className="col-12 mt-4 bg-white p-3 rounded-4 shadow-sm border border-danger border-opacity-25">
                 <h6 className="fw-800 text-danger mb-3 border-bottom pb-2"><i className="fas fa-bell me-2"></i>تنبيهات انتهاء الاشتراك (7 أيام فأقل)</h6>
@@ -1423,31 +1443,36 @@ const DynamoGymApp = () => {
                     <span className="fw-bold small">إلى:</span>
                     <input type="date" className="form-control form-control-sm rounded-pill shadow-sm" style={{width: '150px'}} value={reportToDate} onChange={e => setReportToDate(e.target.value)} />
                     <button className="btn btn-outline-secondary btn-sm rounded-pill px-3" onClick={() => {
-                      const today = new Date();
-                      setReportFromDate(new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]);
-                      setReportToDate(today.toISOString().split('T')[0]);
+                      setReportFromDate(monthStartLocal());
+                      setReportToDate(todayLocal());
                     }}>الشهر الحالي</button>
                     <button className="btn btn-outline-secondary btn-sm rounded-pill px-3" onClick={() => {
-                      const today = new Date();
-                      setReportFromDate(new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0]);
-                      setReportToDate(today.toISOString().split('T')[0]);
+                      setReportFromDate(`${new Date().getFullYear()}-01-01`);
+                      setReportToDate(todayLocal());
                     }}>السنة الحالية</button>
                     <button className="btn btn-outline-secondary btn-sm rounded-pill px-3" onClick={() => {
                       setReportFromDate('2020-01-01');
-                      setReportToDate(new Date().toISOString().split('T')[0]);
+                      setReportToDate(todayLocal());
                     }}>الكل</button>
+                    <button className="btn btn-outline-secondary btn-sm rounded-pill px-3" onClick={() => {
+                      setReportFromDate(todayLocal());
+                      setReportToDate(todayLocal());
+                    }}>اليوم</button>
                   </div>
                </div>
                {reportData && (
                  <>
-                    <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-primary text-white shadow-lg"><small className="fw-bold opacity-75">إيرادات الاشتراكات (+دين)</small><h3 className="fw-800">{formatNum(reportData.membershipRev)} ₪</h3></div></div>
-                    <div className="col-md-4 col-6"><div className="card p-3 border-0 bg-info text-white shadow-lg"><small className="fw-bold opacity-75">إيرادات المبيعات (+دين)</small><h3 className="fw-800">{formatNum(reportData.posRev)} ₪</h3></div></div>
-                    <div className="col-md-4 col-12"><div className="card p-3 border-0 bg-success text-white shadow-lg"><small className="fw-bold opacity-75">الإيرادات الكلية</small><h3 className="fw-800">{formatNum(reportData.totalIncome)} ₪</h3></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-primary text-white shadow-lg h-100"><small className="fw-bold opacity-75">إيرادات الاشتراكات (مقبوضة)</small><h3 className="fw-800">{formatNum(reportData.membershipPaid)} ₪</h3></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-secondary text-white shadow-lg h-100"><small className="fw-bold opacity-75">الاشتراكات الآجلة</small><h3 className="fw-800">{formatNum(reportData.membershipDeferred)} ₪</h3></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-info text-white shadow-lg h-100"><small className="fw-bold opacity-75">إيرادات المبيعات (مقبوضة)</small><h3 className="fw-800">{formatNum(reportData.posPaid)} ₪</h3>{reportData.posDeferred > 0 && <small className="opacity-75">آجلة: {formatNum(reportData.posDeferred)} ₪</small>}</div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-dark text-white shadow-lg h-100"><small className="fw-bold opacity-75">الديون المسددة (تحصيل)</small><h3 className="fw-800">{formatNum(reportData.debtPayments)} ₪</h3></div></div>
+                    <div className="col-12"><div className="card p-3 border-0 bg-success text-white shadow-lg"><small className="fw-bold opacity-75">الإيرادات الكلية (مقبوض + آجل − مشطوب)</small><h3 className="fw-800">{formatNum(reportData.totalIncome)} ₪</h3></div></div>
                     {reportData.writeOffs > 0 && (
                       <div className="col-12"><div className="card p-3 border-0 bg-warning bg-opacity-10 border-top border-4 border-warning shadow-sm d-flex flex-row justify-content-between align-items-center"><div><small className="fw-bold text-warning"><i className="fas fa-eraser me-1"></i>ديون مشطوبة (محذوفة من الإيرادات)</small></div><h5 className="fw-800 text-warning mb-0">- {formatNum(reportData.writeOffs)} ₪</h5></div></div>
                     )}
-                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-danger shadow-sm border-top border-4 border-danger h-100"><small className="fw-bold text-muted">الرواتب والمصروفات</small><h3>{formatNum(reportData.salaries + reportData.expenses)} ₪</h3></div></div>
                     <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-warning shadow-sm border-top border-4 border-warning h-100"><small className="fw-bold text-muted">المشتريات</small><h3>{formatNum(reportData.purchases)} ₪</h3></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-danger shadow-sm border-top border-4 border-danger h-100"><small className="fw-bold text-muted">المصروفات</small><h3>{formatNum(reportData.expenses)} ₪</h3></div></div>
+                    <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-danger shadow-sm border-top border-4 border-danger h-100"><small className="fw-bold text-muted">الرواتب والسلف</small><h3>{formatNum(reportData.salaries)} ₪</h3></div></div>
                     <div className="col-md-3 col-6"><div className="card p-3 border-0 bg-white text-dark shadow-sm border-top border-4 border-dark h-100"><small className="fw-bold text-muted">مسحوبات شخصية</small><h3>{formatNum(reportData.personalWithdrawals)} ₪</h3></div></div>
                     <div className="col-md-3 col-6"><div className="card p-4 border-0 bg-danger bg-opacity-10 rounded-4 shadow-sm d-flex flex-column align-items-center"><h6 className="fw-800 text-danger mb-1">الديون لنا</h6><h2 className="fw-800 text-danger mb-0 fs-2">{formatNum(reportData.debtsOnOthers)} ₪</h2></div></div>
                     <div className="col-md-12 mt-4"><div className={`card p-5 bg-dark text-white rounded-5 shadow-2xl border-0 border-top border-5 ${reportData.net >= 0 ? 'border-success' : 'border-danger'}`}><h5 className="opacity-75 fw-bold">الربح الصافي</h5><h1 className={`fw-800 ${reportData.net >= 0 ? 'text-success' : 'text-danger'}`} style={{fontSize: '4.5rem'}}>{formatNum(reportData.net)} ₪</h1></div></div>
