@@ -1974,14 +1974,20 @@ const DynamoGymApp = () => {
                   try {
                     const debtAmt = writeOffMember.total_debt;
                     // 1. تصفير الدين على العضو
-                    await supabase!.from('members').update({ total_debt: 0 }).eq('id', writeOffMember.id);
+                    const { error: debtErr } = await supabase!.from('members').update({ total_debt: 0 }).eq('id', writeOffMember.id);
+                    if (debtErr) throw debtErr;
                     // 2. تسجيل معاملة شطب (DEBT_WRITEOFF) تُلغي الإيراد من التقارير
-                    await supabase!.from('transactions').insert({
+                    const { error: txErr } = await supabase!.from('transactions').insert({
                       type: 'DEBT_WRITEOFF',
                       amount: debtAmt,
                       label: `شطب دين: ${writeOffMember.name}`,
                       metadata: { member_id: writeOffMember.id, reason: 'إلغاء إيراد - عضو انسحب' }
                     });
+                    if (txErr) {
+                      // تراجع عن التصفير حتى لا يختفي الدين دون تسجيل الشطب
+                      await supabase!.from('members').update({ total_debt: debtAmt }).eq('id', writeOffMember.id);
+                      throw txErr;
+                    }
                     setWriteOffMember(null);
                     fetchData();
                     alert(`✅ تم شطب دين ${formatNum(debtAmt)} ₪ على ${writeOffMember.name} بنجاح`);
