@@ -363,10 +363,9 @@ const DynamoGymApp = () => {
   const calcReport = useCallback((fromStr: string, toStr: string) => {
     const fromDate = new Date(fromStr + 'T00:00:00');
     const toDate = new Date(toStr + 'T23:59:59.999');
-    const tList = transactions.filter(t => {
-      const tDate = new Date(t.created_at);
-      return tDate >= fromDate && tDate <= toDate;
-    });
+    const inRange = (d: any) => { const x = new Date(d); return x >= fromDate && x <= toDate; };
+    // الشطب يُحسب في شهر الاشتراك الأصلي (original_date) وليس يوم الشطب
+    const tList = transactions.filter(t => t.type === 'DEBT_WRITEOFF' ? inRange(t.metadata?.original_date || t.created_at) : inRange(t.created_at));
     const mRev = tList.filter(t => t.type === 'MEMBERSHIP').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
     const pRev = tList.filter(t => t.type === 'SALE').reduce((s,t) => s + t.amount + (t.metadata?.debt_added || 0), 0);
     const sumDebt = (type: string) => tList.filter(t => t.type === type).reduce((s,t) => s + (t.metadata?.debt_added || 0), 0);
@@ -1977,16 +1976,27 @@ const DynamoGymApp = () => {
                     const { error: debtErr } = await supabase!.from('members').update({ total_debt: 0 }).eq('id', writeOffMember.id);
                     if (debtErr) throw debtErr;
                     // 2. تسجيل معاملة شطب (DEBT_WRITEOFF) تُلغي الإيراد من التقارير
-                    const { error: txErr } = await supabase!.from('transactions').insert({
-                      type: 'DEBT_WRITEOFF',
-                      amount: debtAmt,
-                      label: `شطب دين: ${writeOffMember.name}`,
-                      metadata: { member_id: writeOffMember.id, reason: 'إلغاء إيراد - عضو انسحب' }
-                    });
+                    // توزيع المبلغ المشطوب على معاملات الدين الأصلية (الأحدث أولاً) ليُخصم من شهر كل منها
+                    const sources = transactions
+                      .filter(t => ['MEMBERSHIP', 'SALE'].includes(t.type) && (t.metadata?.member_id === writeOffMember.id || t.metadata?.person_id === writeOffMember.id) && (t.metadata?.debt_added || 0) > 0)
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    let left = debtAmt;
+                    const rows: any[] = [];
+                    for (const src of sources) {
+                      if (left <= 0) break;
+                      const part = Math.min(left, src.metadata.debt_added);
+                      rows.push({ type: 'DEBT_WRITEOFF', amount: part, label: `شطب دين: ${writeOffMember.name}`, metadata: { member_id: writeOffMember.id, reason: 'إلغاء إيراد - عضو انسحب', original_date: src.created_at } });
+                      left -= part;
+                    }
+                    if (left > 0) rows.push({ type: 'DEBT_WRITEOFF', amount: left, label: `شطب دين: ${writeOffMember.name}`, metadata: { member_id: writeOffMember.id, reason: 'إلغاء إيراد - عضو انسحب' } });
+                    const { error: txErr } = await supabase!.from('transactions').insert(rows);
                     if (txErr) {
                       // تراجع عن التصفير حتى لا يختفي الدين دون تسجيل الشطب
-                      await supabase!.from('members').update({ total_debt: debtAmt }).eq('id', writeOffMember.id);
-                      throw txErr;
+                      const { error: restoreErr } = await supabase!.from('members').update({ total_debt: debtAmt }).eq('id', writeOffMember.id);
+                      fetchData();
+                      throw new Error(restoreErr
+                        ? `⚠️ فشل الشطب وتعذّرت إعادة الدين تلقائياً! دين ${writeOffMember.name} (${formatNum(debtAmt)} ₪) قد يكون صُفّر بالخطأ، أعده يدوياً.\n${txErr.message}`
+                        : `⚠️ فشل تسجيل الشطب، وتمت إعادة الدين ${formatNum(debtAmt)} ₪ إلى ${writeOffMember.name}. لم يتم الشطب.\n${txErr.message}`);
                     }
                     setWriteOffMember(null);
                     fetchData();
